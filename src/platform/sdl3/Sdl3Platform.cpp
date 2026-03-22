@@ -2,6 +2,7 @@
 
 #include "../Platform.h"
 #include "../../core/CallbackManager.h"
+#include "../../glad/glad.h"
 #include <SDL3/SDL.h>
 #include <chrono>
 #include <iostream>
@@ -25,9 +26,15 @@ public:
     bool initialize() override { return false; }
 
     bool initialize(const PlatformConfig& config) {
+#if defined(__APPLE__)
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+#else
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#endif
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
         SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
@@ -51,11 +58,24 @@ public:
             return false;
         }
 
+#if defined(__APPLE__)
+        if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
+            std::cerr << "[Sdl3Window] Failed to initialize GLAD: " << std::endl;
+            return false;
+        }
+#else
+        if (!gladLoadGLES2Loader((GLADloadproc)SDL_GL_GetProcAddress)) {
+            std::cerr << "[Sdl3Window] Failed to initialize GLAD: " << std::endl;
+            return false;
+        }
+#endif
+
         SDL_GL_SetSwapInterval(1);
         m_width = width;
         m_height = height;
 
         std::cout << "[Sdl3Window] Window created: " << width << "x" << height << std::endl;
+        std::cout << "[Sdl3Window] OpenGL: " << glGetString(GL_VERSION) << std::endl;
         return true;
     }
 
@@ -86,10 +106,13 @@ public:
     WindowInfo getWindowInfo() const override {
         WindowInfo info;
         if (m_window) {
-            SDL_GetWindowSize(m_window, &info.windowWidth, &info.windowHeight);
+            SDL_GetWindowSizeInPixels(m_window, &info.windowWidth, &info.windowHeight);
             info.screenWidth = info.windowWidth;
             info.screenHeight = info.windowHeight;
             info.pixelRatio = 1.0f;
+            int logicalW, logicalH;
+            SDL_GetWindowSize(m_window, &logicalW, &logicalH);
+            if (logicalW > 0) info.pixelRatio = static_cast<float>(info.windowWidth) / logicalW;
             info.safeArea = { 0, 0, info.windowWidth, info.windowHeight, info.windowWidth, info.windowHeight };
         }
         return info;
@@ -112,7 +135,7 @@ public:
 
     void processEvent(const SDL_Event& event) {
         if (event.type == SDL_EVENT_WINDOW_RESIZED || event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) {
-            SDL_GetWindowSize(m_window, &m_width, &m_height);
+            SDL_GetWindowSizeInPixels(m_window, &m_width, &m_height);
             onWindowResize.emit(m_width, m_height);
         }
     }

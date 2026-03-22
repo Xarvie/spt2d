@@ -16,9 +16,15 @@ static EM_BOOL onMouseEvent(int eventType, const EmscriptenMouseEvent* e, void*)
     me.y = static_cast<float>(e->targetY);
     me.timestamp = static_cast<float>(emscripten_get_now()) / 1000.0f;
     switch (eventType) {
-        case EMSCRIPTEN_EVENT_MOUSEDOWN: me.type = MouseEvent::Down; me.button = e->button; break;
-        case EMSCRIPTEN_EVENT_MOUSEUP: me.type = MouseEvent::Up; me.button = e->button; break;
-        case EMSCRIPTEN_EVENT_MOUSEMOVE: me.type = MouseEvent::Move; me.deltaX = static_cast<float>(e->movementX); me.deltaY = static_cast<float>(e->movementY); break;
+        case EMSCRIPTEN_EVENT_MOUSEDOWN: 
+            me.type = MouseEvent::Down; 
+            me.button = e->button; 
+            std::cout << "[WebInput] Mouse down at (" << me.x << ", " << me.y << ")" << std::endl;
+            break;
+        case EMSCRIPTEN_EVENT_MOUSEUP: 
+            me.type = MouseEvent::Up; 
+            me.button = e->button; 
+            break;
         default: return EM_FALSE;
     }
     g_inputSystem->onMouse.emit(me);
@@ -73,17 +79,30 @@ static EM_BOOL onTouchEvent(int eventType, const EmscriptenTouchEvent* e, void*)
 class WebWindowSystem : public IWindowSystem {
 public:
     bool initialize() override {
+        m_pixelRatio = static_cast<float>(emscripten_get_device_pixel_ratio());
+
+        int w, h;
+        emscripten_get_canvas_element_size("#canvas", &w, &h);
+        m_width = w;
+        m_height = h;
+
+        std::cout << "[WebWindow] Canvas size: " << m_width << "x" << m_height << " (DPR=" << m_pixelRatio << ")" << std::endl;
+
         EmscriptenWebGLContextAttributes attrs;
         emscripten_webgl_init_context_attributes(&attrs);
         attrs.majorVersion = 2;
         EMSCRIPTEN_WEBGL_CONTEXT_HANDLE ctx = emscripten_webgl_create_context("#canvas", &attrs);
-        if (ctx <= 0) { std::cerr << "[WebWindow] Failed to create WebGL context" << std::endl; return false; }
+        if (ctx <= 0) {
+            std::cerr << "[WebWindow] Failed to create WebGL context: " << ctx << std::endl;
+            return false;
+        }
         emscripten_webgl_make_context_current(ctx);
         m_context = ctx;
-        updateSize();
+
         std::cout << "[WebWindow] WebGL2 context created" << std::endl;
         return true;
     }
+
     void shutdown() override {}
     void setKeepScreenOn(bool) override {}
     void setScreenBrightness(float) override {}
@@ -109,12 +128,16 @@ public:
         return info;
     }
 
-    void updateSize() {
-        double w, h;
-        emscripten_get_element_css_size("#canvas", &w, &h);
-        m_width = static_cast<int>(w);
-        m_height = static_cast<int>(h);
-        m_pixelRatio = static_cast<float>(emscripten_get_device_pixel_ratio());
+    void updateSize() override {
+        int newW, newH;
+        emscripten_get_canvas_element_size("#canvas", &newW, &newH);
+
+        if (newW != m_width || newH != m_height) {
+            m_width = newW;
+            m_height = newH;
+            m_pixelRatio = static_cast<float>(emscripten_get_device_pixel_ratio());
+            onWindowResize.emit(m_width, m_height);
+        }
     }
 
 private:
@@ -127,16 +150,22 @@ class WebInputSystem : public IInputSystem {
 public:
     bool initialize() override {
         g_inputSystem = this;
-        emscripten_set_mousedown_callback("#canvas", nullptr, EM_TRUE, onMouseEvent);
-        emscripten_set_mouseup_callback("#canvas", nullptr, EM_TRUE, onMouseEvent);
-        emscripten_set_mousemove_callback("#canvas", nullptr, EM_TRUE, onMouseEvent);
-        emscripten_set_wheel_callback("#canvas", nullptr, EM_TRUE, onWheelEvent);
-        emscripten_set_keydown_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, EM_TRUE, onKeyEvent);
-        emscripten_set_keyup_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, EM_TRUE, onKeyEvent);
-        emscripten_set_touchstart_callback("#canvas", nullptr, EM_TRUE, onTouchEvent);
-        emscripten_set_touchend_callback("#canvas", nullptr, EM_TRUE, onTouchEvent);
-        emscripten_set_touchmove_callback("#canvas", nullptr, EM_TRUE, onTouchEvent);
-        emscripten_set_touchcancel_callback("#canvas", nullptr, EM_TRUE, onTouchEvent);
+        std::cout << "[WebInput] Registering callbacks..." << std::endl;
+
+        EM_BOOL result;
+        result = emscripten_set_mousedown_callback("#canvas", nullptr, EM_TRUE, onMouseEvent);
+        std::cout << "[WebInput] mousedown callback result: " << result << std::endl;
+
+        result = emscripten_set_mouseup_callback("#canvas", nullptr, EM_TRUE, onMouseEvent);
+        result = emscripten_set_wheel_callback("#canvas", nullptr, EM_TRUE, onWheelEvent);
+        result = emscripten_set_keydown_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, EM_TRUE, onKeyEvent);
+        result = emscripten_set_keyup_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, EM_TRUE, onKeyEvent);
+        result = emscripten_set_touchstart_callback("#canvas", nullptr, EM_TRUE, onTouchEvent);
+        result = emscripten_set_touchend_callback("#canvas", nullptr, EM_TRUE, onTouchEvent);
+        result = emscripten_set_touchmove_callback("#canvas", nullptr, EM_TRUE, onTouchEvent);
+        result = emscripten_set_touchcancel_callback("#canvas", nullptr, EM_TRUE, onTouchEvent);
+
+        std::cout << "[WebInput] Callbacks registered" << std::endl;
         return true;
     }
     void shutdown() override { g_inputSystem = nullptr; }
@@ -189,6 +218,9 @@ public:
             double now = emscripten_get_now() / 1000.0;
             float dt = std::min(static_cast<float>(now - self->m_lastTime), 0.1f);
             self->m_lastTime = now;
+
+            self->m_windowSystem->updateSize();
+
             if (self->m_updateFunc) self->m_updateFunc(dt);
         }, this, 0, 1);
     }

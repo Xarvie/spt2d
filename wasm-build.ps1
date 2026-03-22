@@ -3,7 +3,7 @@ $env:EMSDK_NODE = "$EMSDK\node\22.16.0_64bit\bin\node.exe"
 $env:EMSDK_PYTHON = "$EMSDK\python\3.13.3_64bit\python.exe"
 $env:PATH = "$EMSDK;$EMSDK\upstream\emscripten;$env:PATH"
 
-Set-Location "C:\Users\ftp\WeChatProjects\spt-2d"
+Set-Location "C:\Users\ftp\WeChatProjects\spt2d"
 
 Write-Host "========================================"
 Write-Host "spt-2d WASM Build Script"
@@ -25,15 +25,17 @@ function Build-Wx {
         New-Item -ItemType Directory -Path "build-wx" | Out-Null
     }
     
-    em++ src/Main.cpp src/platform/wx/WxPlatform.cpp `
+    em++ src/Main.cpp src/platform/wx/WxPlatform.cpp src/graphics/Shader.cpp src/graphics/Graphics.cpp `
         -D__WXGAME__ -D__EMSCRIPTEN__ `
-        -Isrc -Isrc/core -Isrc/platform `
+        -Isrc -Isrc/core -Isrc/platform -Isrc/graphics `
         -sWASM=1 -sMODULARIZE=1 -sEXPORT_NAME=GameModule -sINVOKE_RUN=0 `
         "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_WxBridge_OnTouch','_WxBridge_OnKey','_WxBridge_OnMouse','_WxBridge_OnResize','_WxBridge_OnSafeAreaChange','_WxBridge_OnHttpResponse','_WxBridge_OnAppShow','_WxBridge_OnAppHide','_WxBridge_OnError','_WxBridge_OnMemoryWarning']" `
-        "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','stringToUTF8','UTF8ToString','lengthBytesUTF8','getValue','setValue']" `
+        "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','stringToUTF8','UTF8ToString','lengthBytesUTF8','getValue','setValue','allocateUTF8','GL']" `
         -sENVIRONMENT=web -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=16777216 `
         -sNO_EXIT_RUNTIME=1 -sEXPORT_ES6=0 -sUSE_ES6_IMPORT_META=0 `
         -sDYNAMIC_EXECUTION=0 -sFILESYSTEM=0 `
+        -sUSE_WEBGL2=1 -sMIN_WEBGL_VERSION=2 -sFULL_ES3=1 `
+        -sGL_WORKAROUND_SAFARI_GETCONTEXT_BUG=0 `
         -O2 -o build-wx/game-wasm.js
     
     if ($LASTEXITCODE -ne 0) {
@@ -60,14 +62,14 @@ function Build-Web {
         New-Item -ItemType Directory -Path "build-web" | Out-Null
     }
     
-    em++ src/Main.cpp src/platform/web/WebPlatform.cpp `
+    em++ src/Main.cpp src/platform/web/WebPlatform.cpp src/graphics/Shader.cpp src/graphics/Graphics.cpp `
         -D__EMSCRIPTEN__ `
-        -Isrc -Isrc/core -Isrc/platform `
+        -Isrc -Isrc/core -Isrc/platform -Isrc/graphics `
         -sWASM=1 `
         "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free']" `
         "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','stringToUTF8','UTF8ToString','lengthBytesUTF8']" `
         -sENVIRONMENT=web -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=16777216 `
-        -sUSE_WEBGL2=1 -sFULL_ES3=1 `
+        -sUSE_WEBGL2=1 -sMIN_WEBGL_VERSION=2 -sFULL_ES3=1 `
         -O2 -o build-web/game.js
     
     if ($LASTEXITCODE -ne 0) {

@@ -91,9 +91,10 @@ public:
             if (typeof wx !== 'undefined') {
                 try {
                     var si = wx.getSystemInfoSync();
-                    setValue($0, si.windowWidth || 0, 'i32');
-                    setValue($1, si.windowHeight || 0, 'i32');
-                    setValue($2, si.pixelRatio || 1.0, 'float');
+                    var pr = si.pixelRatio || 1.0;
+                    setValue($0, Math.floor((si.windowWidth || 0) * pr), 'i32');
+                    setValue($1, Math.floor((si.windowHeight || 0) * pr), 'i32');
+                    setValue($2, pr, 'float');
                 } catch(e) {}
             }
         }, &info.windowWidth, &info.windowHeight, &info.pixelRatio);

@@ -135,21 +135,17 @@
   }
 
   function resizeCanvas() {
-    const container = document.getElementById('game-container');
     const dpr = window.devicePixelRatio || 1;
-    const cssWidth = container.clientWidth;
-    const cssHeight = container.clientHeight;
-    const bufferWidth = Math.round(cssWidth * dpr);
-    const bufferHeight = Math.round(cssHeight * dpr);
-
-    canvas.width = bufferWidth;
-    canvas.height = bufferHeight;
-    canvas.style.width = `${cssWidth}px`;
-    canvas.style.height = `${cssHeight}px`;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.width = width + 'px';
+    canvas.style.height = height + 'px';
   }
 
-  window.addEventListener('resize', resizeCanvas);
   resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
 
   var Module = {
     canvas: canvas,

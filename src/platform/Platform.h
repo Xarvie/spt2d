@@ -125,6 +125,7 @@ public:
     virtual void swapBuffers() = 0;
     [[nodiscard]] virtual WindowInfo getWindowInfo() const = 0;
     [[nodiscard]] virtual SystemInfo getSystemInfo() const = 0;
+    virtual void updateSize() {}
 
     Signal<int, int> onWindowResize;
     Signal<float> onSafeAreaChanged;

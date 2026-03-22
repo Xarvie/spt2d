@@ -1,6 +1,8 @@
 #include "platform/Platform.h"
+#include "graphics/Graphics.h"
 #include <iostream>
 #include <exception>
+#include <memory>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/emscripten.h>
@@ -9,6 +11,7 @@
 namespace spt {
 
 static IPlatformHub* g_platform = nullptr;
+static std::unique_ptr<Graphics> g_graphics;
 static std::function<void(float)> g_updateFunc;
 
 IPlatformHub* GetPlatform() { return g_platform; }
@@ -17,13 +20,23 @@ class GameLogic {
 public:
     void initialize() {
         std::cout << "[Game] Initializing..." << std::endl;
-        if (auto* window = GetPlatform()->getWindowSystem()) {
-            auto info = window->getWindowInfo();
-            std::cout << "[Game] Window: " << info.windowWidth << "x" << info.windowHeight << std::endl;
-            m_resizeSlotId = window->onWindowResize.connect([this](int w, int h) {
-                std::cout << "[Game] Window resized: " << w << "x" << h << std::endl;
-            });
+
+        auto windowInfo = GetPlatform()->getWindowSystem()->getWindowInfo();
+        std::cout << "[Game] Window: " << windowInfo.windowWidth << "x" << windowInfo.windowHeight << std::endl;
+
+        g_graphics = std::make_unique<Graphics>();
+        if (!g_graphics->initialize()) {
+            std::cerr << "[Game] Failed to initialize graphics" << std::endl;
+            return;
         }
+
+        g_graphics->setViewport(0, 0, windowInfo.windowWidth, windowInfo.windowHeight);
+
+        m_resizeSlotId = GetPlatform()->getWindowSystem()->onWindowResize.connect([this](int w, int h) {
+            std::cout << "[Game] Window resized: " << w << "x" << h << std::endl;
+            g_graphics->setViewport(0, 0, w, h);
+        });
+
         if (auto* input = GetPlatform()->getInputSystem()) {
             m_keySlotId = input->onKey.connect([this](const KeyEvent& e) {
                 if (e.type == KeyEvent::Down) {
@@ -31,37 +44,49 @@ public:
                     if (e.key == "Escape" || e.key == "q") GetPlatform()->exitApplication();
                 }
             });
+
             m_touchSlotId = input->onTouch.connect([this](const TouchEvent& e) {
-                const char* typeStr = e.type == TouchEvent::Begin ? "Begin" :
-                                      e.type == TouchEvent::Move ? "Move" :
-                                      e.type == TouchEvent::End ? "End" : "Cancel";
-                std::cout << "[Game] Touch " << typeStr << ": id=" << e.id << " x=" << e.x << " y=" << e.y << std::endl;
-            });
-            m_mouseSlotId = input->onMouse.connect([this](const MouseEvent& e) {
-                const char* typeStr = e.type == MouseEvent::Down ? "Down" :
-                                      e.type == MouseEvent::Up ? "Up" :
-                                      e.type == MouseEvent::Move ? "Move" : "Wheel";
-                std::cout << "[Game] Mouse " << typeStr << ": x=" << e.x << " y=" << e.y << std::endl;
+                const char* typeName = e.type == TouchEvent::Begin ? "Begin" :
+                                       e.type == TouchEvent::Move ? "Move" :
+                                       e.type == TouchEvent::End ? "End" : "Cancel";
+                std::cout << "[Game] Touch " << typeName << ": id=" << e.id 
+                          << " x=" << e.x << " y=" << e.y << std::endl;
             });
         }
+
         std::cout << "[Game] Initialized successfully" << std::endl;
     }
 
-    void update(float dt) { (void)dt; }
-    void render() {}
+    void update(float dt) {
+        (void)dt;
+    }
+
+    void render() {
+        g_graphics->clear(0.1f, 0.1f, 0.15f, 1.0f);
+
+        g_graphics->drawTriangle(
+            -0.5f, -0.5f,  1.0f, 0.0f, 0.0f,
+             0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
+             0.0f,  0.5f,  0.0f, 0.0f, 1.0f
+        );
+
+        g_graphics->flush();
+    }
 
     void shutdown() {
         std::cout << "[Game] Shutting down..." << std::endl;
-        if (auto* window = GetPlatform()->getWindowSystem()) window->onWindowResize.disconnect(m_resizeSlotId);
+        if (auto* window = GetPlatform()->getWindowSystem()) {
+            window->onWindowResize.disconnect(m_resizeSlotId);
+        }
         if (auto* input = GetPlatform()->getInputSystem()) {
             input->onKey.disconnect(m_keySlotId);
             input->onTouch.disconnect(m_touchSlotId);
-            input->onMouse.disconnect(m_mouseSlotId);
         }
+        g_graphics.reset();
     }
 
 private:
-    uint32_t m_resizeSlotId = 0, m_keySlotId = 0, m_touchSlotId = 0, m_mouseSlotId = 0;
+    uint32_t m_resizeSlotId = 0, m_keySlotId = 0, m_touchSlotId = 0;
 };
 
 static GameLogic* g_game = nullptr;

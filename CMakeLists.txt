@@ -1,10 +1,13 @@
 cmake_minimum_required(VERSION 3.20)
-project(spt-2d LANGUAGES CXX)
+project(spt-2d LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
 
 set(SDL3_ROOT "C:/msvcpkg/SDL3")
+set(GLM_ROOT "C:/Users/ftp/WeChatProjects/spt2d_old/libs/glm")
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 add_executable(game)
@@ -13,6 +16,9 @@ target_include_directories(game PRIVATE
     ${SRC_DIR}
     ${SRC_DIR}/core
     ${SRC_DIR}/platform
+    ${SRC_DIR}/graphics
+    ${SRC_DIR}/glad
+    ${GLM_ROOT}
 )
 
 if(EMSCRIPTEN)
@@ -23,13 +29,17 @@ if(EMSCRIPTEN)
         target_sources(game PRIVATE
             ${SRC_DIR}/Main.cpp
             ${SRC_DIR}/platform/wx/WxPlatform.cpp
+            ${SRC_DIR}/graphics/Shader.cpp
+            ${SRC_DIR}/graphics/Graphics.cpp
+            ${SRC_DIR}/glad/glad.c
         )
 
         target_link_options(game PRIVATE
             -sWASM=1 -sMODULARIZE=1 -sEXPORT_NAME=GameModule
             "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_WxBridge_OnTouch','_WxBridge_OnKey','_WxBridge_OnMouse','_WxBridge_OnResize','_WxBridge_OnSafeAreaChange','_WxBridge_OnHttpResponse','_WxBridge_OnAppShow','_WxBridge_OnAppHide','_WxBridge_OnError','_WxBridge_OnMemoryWarning']"
-            "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','stringToUTF8','UTF8ToString','lengthBytesUTF8','getValue','setValue']"
+            "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','stringToUTF8','UTF8ToString','lengthBytesUTF8','getValue','setValue','allocateUTF8','GL']"
             -sENVIRONMENT=web -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=16777216
+            -sUSE_WEBGL2=1 -sFULL_ES3=1
             -sNO_EXIT_RUNTIME=1 -sEXPORT_ES6=0 -sUSE_ES6_IMPORT_META=0
             -sDYNAMIC_EXECUTION=0 -sFILESYSTEM=0
             -O2
@@ -39,6 +49,9 @@ if(EMSCRIPTEN)
         target_sources(game PRIVATE
             ${SRC_DIR}/Main.cpp
             ${SRC_DIR}/platform/web/WebPlatform.cpp
+            ${SRC_DIR}/graphics/Shader.cpp
+            ${SRC_DIR}/graphics/Graphics.cpp
+            ${SRC_DIR}/glad/glad.c
         )
         target_link_options(game PRIVATE
             -sWASM=1
@@ -49,11 +62,39 @@ if(EMSCRIPTEN)
             -O2
         )
     endif()
-else()
-    message(STATUS "Building for: Desktop (SDL3)")
+elseif(APPLE)
+    message(STATUS "Building for: macOS (SDL3)")
+    target_compile_definitions(game PRIVATE __OS_MACOS)
     target_sources(game PRIVATE
         ${SRC_DIR}/Main.cpp
         ${SRC_DIR}/platform/sdl3/Sdl3Platform.cpp
+        ${SRC_DIR}/graphics/Shader.cpp
+        ${SRC_DIR}/graphics/Graphics.cpp
+        ${SRC_DIR}/glad/glad.c
+    )
+    find_package(OpenGL REQUIRED)
+    target_link_libraries(game PRIVATE OpenGL::GL)
+elseif(UNIX)
+    message(STATUS "Building for: Linux (SDL3)")
+    target_compile_definitions(game PRIVATE __OS_LINUX)
+    target_sources(game PRIVATE
+        ${SRC_DIR}/Main.cpp
+        ${SRC_DIR}/platform/sdl3/Sdl3Platform.cpp
+        ${SRC_DIR}/graphics/Shader.cpp
+        ${SRC_DIR}/graphics/Graphics.cpp
+        ${SRC_DIR}/glad/glad.c
+    )
+    find_package(OpenGL REQUIRED)
+    target_link_libraries(game PRIVATE OpenGL::GL)
+else()
+    message(STATUS "Building for: Windows (SDL3)")
+    target_compile_definitions(game PRIVATE __OS_WINDOWS)
+    target_sources(game PRIVATE
+        ${SRC_DIR}/Main.cpp
+        ${SRC_DIR}/platform/sdl3/Sdl3Platform.cpp
+        ${SRC_DIR}/graphics/Shader.cpp
+        ${SRC_DIR}/graphics/Graphics.cpp
+        ${SRC_DIR}/glad/glad.c
     )
     target_include_directories(game PRIVATE "${SDL3_ROOT}/include")
     target_link_libraries(game PRIVATE "${SDL3_ROOT}/lib/x64/SDL3.lib")
