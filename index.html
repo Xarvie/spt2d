@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spt-2D Game</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #111;
+      font-family: "Segoe UI", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    #game-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      background: #111;
+      display: block;
+    }
+
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #fff;
+      font-size: 1.5rem;
+      text-shadow: 1px 1px 5px rgba(0,0,0,0.7);
+      z-index: 10;
+    }
+
+    #loading-canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    #console-container {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      width: 480px;
+      height: 200px;
+      background: rgba(0,0,0,0.85);
+      border: 1px solid #00ff90;
+      border-radius: 8px;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 0 12px rgba(0,255,128,0.3);
+    }
+
+    #console {
+      flex: 1;
+      width: 100%;
+      background: transparent;
+      color: #00ff90;
+      font-family: monospace;
+      font-size: 13px;
+      border: none;
+      outline: none;
+      padding: 8px;
+      resize: none;
+      overflow-y: auto;
+    }
+
+    #toggle-console {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      background: #00ff90;
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 14px;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(0,255,128,0.4);
+      transition: all 0.2s ease;
+      z-index: 999;
+    }
+  </style>
+</head>
+<body>
+
+<div id="game-container">
+  <canvas id="canvas"></canvas>
+  <canvas id="loading-canvas"></canvas>
+  <div id="loading">Loading...</div>
+</div>
+
+<button id="toggle-console">🧰 Console</button>
+<div id="console-container">
+  <textarea id="console" readonly></textarea>
+</div>
+
+<script>
+  const toggleBtn = document.getElementById('toggle-console');
+  const consoleBox = document.getElementById('console-container');
+  toggleBtn.addEventListener('click', () => {
+    const isVisible = consoleBox.style.display === 'flex';
+    consoleBox.style.display = isVisible ? 'none' : 'flex';
+    toggleBtn.textContent = isVisible ? '🧰 Console' : '⬇️ Hide Console';
+  });
+</script>
+
+<script>
+  const canvas = document.getElementById('canvas');
+  const logArea = document.getElementById('console');
+
+  window.isGameRunning = false;
+
+  function log(text) {
+    logArea.value += text + "\n";
+    logArea.scrollTop = logArea.scrollHeight;
+    console.log(text);
+  }
+
+  function resizeCanvas() {
+    const container = document.getElementById('game-container');
+    const dpr = window.devicePixelRatio || 1;
+    const cssWidth = container.clientWidth;
+    const cssHeight = container.clientHeight;
+    const bufferWidth = Math.round(cssWidth * dpr);
+    const bufferHeight = Math.round(cssHeight * dpr);
+
+    canvas.width = bufferWidth;
+    canvas.height = bufferHeight;
+    canvas.style.width = `${cssWidth}px`;
+    canvas.style.height = `${cssHeight}px`;
+  }
+
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  var Module = {
+    canvas: canvas,
+    print: log,
+    printErr: (text) => {
+      log("[ERROR] " + text);
+      console.error(text);
+    },
+    onRuntimeInitialized: function() {
+      log("WASM module initialized!");
+      window.isGameRunning = true;
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('loading-canvas').style.display = 'none';
+    },
+    locateFile: (path) => path
+  };
+</script>
+
+<script>
+  const loadingCanvas = document.getElementById('loading-canvas');
+  const loadingCtx = loadingCanvas.getContext('2d');
+
+  let time = 0;
+
+  function resizeLoadingCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    loadingCanvas.width = loadingCanvas.clientWidth * dpr;
+    loadingCanvas.height = loadingCanvas.clientHeight * dpr;
+  }
+
+  resizeLoadingCanvas();
+  window.addEventListener("resize", resizeLoadingCanvas);
+
+  function drawLoading() {
+    if (window.isGameRunning) return;
+
+    const width = loadingCanvas.width;
+    const height = loadingCanvas.height;
+
+    loadingCtx.fillStyle = 'rgba(17, 17, 17, 0.2)';
+    loadingCtx.fillRect(0, 0, width, height);
+
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const maxRadius = Math.min(width, height) * 0.3;
+
+    for (let i = 0; i < 10; i++) {
+      const angle = time * (0.5 + i * 0.1);
+      const radius = maxRadius * Math.sin(time * 0.5 + i * 0.5);
+      const x = centerX + Math.cos(angle) * radius;
+      const y = centerY + Math.sin(angle) * radius;
+      const size = (Math.sin(time + i) + 1.5) * 15;
+      const hue = (time * 50 + i * 30) % 360;
+
+      loadingCtx.fillStyle = `hsl(${hue}, 70%, 60%)`;
+      loadingCtx.beginPath();
+      loadingCtx.arc(x, y, size / 2, 0, Math.PI * 2);
+      loadingCtx.fill();
+    }
+
+    time += 0.02;
+    requestAnimationFrame(drawLoading);
+  }
+
+  requestAnimationFrame(drawLoading);
+</script>
+
+<script src="game.js"></script>
+
+</body>
+</html>
