@@ -18,7 +18,7 @@ const char* const SHADER_VS_BASIC = SPT_GLSL_VERSION R"(
 
     void main() {
         gl_Position = u_mvp * vec4(a_position, 0.0, 1.0);
-        v_color = vec4(1.0);
+        v_color = a_color;
     }
 )";
 

@@ -2877,7 +2877,7 @@ void glDebugMessageInsertKHR(GLenum source, GLenum type, GLuint id,
 }
 
 void glDebugMessageCallback(GLDEBUGPROCKHR callback, const void *userParam) {
-  PAGL_DebugMessageCallback(callback, userParam);
+//  PAGL_DebugMessageCallback(callback, userParam);
   checkErr(__func__);
 }
 void glDebugMessageControl(GLenum source, GLenum type, GLenum severity,

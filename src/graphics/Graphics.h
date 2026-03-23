@@ -2,6 +2,7 @@
 
 #include "../glad/glad.h"
 #include "Shader.h"
+#include "../core/GameWork.h"
 #include <memory>
 
 namespace spt {
@@ -30,6 +31,14 @@ public:
                       float x3, float y3, float r3, float g3, float b3);
 
     void flush();
+
+    void recordDrawTriangle(GameWork& work,
+                            float x1, float y1, float r1, float g1, float b1,
+                            float x2, float y2, float r2, float g2, float b2,
+                            float x3, float y3, float r3, float g3, float b3);
+
+    GLuint vao() const { return m_vao; }
+    GLuint program() const;
 
 private:
     bool createDefaultResources();

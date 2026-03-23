@@ -1,5 +1,8 @@
 #include "platform/Platform.h"
 #include "graphics/Graphics.h"
+#include "graphics/RenderCommandExecutor.h"
+#include "core/ThreadModel.h"
+
 #include <iostream>
 #include <exception>
 #include <memory>
@@ -12,13 +15,14 @@ namespace spt {
 
 static IPlatformHub* g_platform = nullptr;
 static std::unique_ptr<Graphics> g_graphics;
-static std::function<void(float)> g_updateFunc;
+static std::unique_ptr<ThreadModel> g_threadModel;
+static RenderCommandExecutor g_renderExecutor;
 
 IPlatformHub* GetPlatform() { return g_platform; }
 
-class GameLogic {
+class GameLogicImpl : public IGameLogic {
 public:
-    void initialize() {
+    bool onInit() override {
         std::cout << "[Game] Initializing..." << std::endl;
 
         auto windowInfo = GetPlatform()->getWindowSystem()->getWindowInfo();
@@ -27,53 +31,79 @@ public:
         g_graphics = std::make_unique<Graphics>();
         if (!g_graphics->initialize()) {
             std::cerr << "[Game] Failed to initialize graphics" << std::endl;
-            return;
+            return false;
         }
 
-        g_graphics->setViewport(0, 0, windowInfo.windowWidth, windowInfo.windowHeight);
+        m_windowWidth = windowInfo.windowWidth;
+        m_windowHeight = windowInfo.windowHeight;
 
         m_resizeSlotId = GetPlatform()->getWindowSystem()->onWindowResize.connect([this](int w, int h) {
             std::cout << "[Game] Window resized: " << w << "x" << h << std::endl;
-            g_graphics->setViewport(0, 0, w, h);
+            m_windowWidth = w;
+            m_windowHeight = h;
+            m_viewportDirty = true;
         });
 
         if (auto* input = GetPlatform()->getInputSystem()) {
-            m_keySlotId = input->onKey.connect([this](const KeyEvent& e) {
+            m_keySlotId = input->onKey.connect([](const KeyEvent& e) {
                 if (e.type == KeyEvent::Down) {
                     std::cout << "[Game] Key pressed: " << e.key << std::endl;
-                    if (e.key == "Escape" || e.key == "q") GetPlatform()->exitApplication();
+                    if (e.key == "Escape" || e.key == "q") {
+                        GetPlatform()->exitApplication();
+                    }
                 }
             });
 
-            m_touchSlotId = input->onTouch.connect([this](const TouchEvent& e) {
+            m_touchSlotId = input->onTouch.connect([](const TouchEvent& e) {
                 const char* typeName = e.type == TouchEvent::Begin ? "Begin" :
                                        e.type == TouchEvent::Move ? "Move" :
                                        e.type == TouchEvent::End ? "End" : "Cancel";
                 std::cout << "[Game] Touch " << typeName << ": id=" << e.id 
                           << " x=" << e.x << " y=" << e.y << std::endl;
             });
+
+            m_mouseSlotId = input->onMouse.connect([](const MouseEvent& e) {
+                const char* typeName = e.type == MouseEvent::Down ? "Down" :
+                                       e.type == MouseEvent::Up ? "Up" :
+                                       e.type == MouseEvent::Move ? "Move" : "Wheel";
+                std::cout << "[Game] Mouse " << typeName << ": x=" << e.x << " y=" << e.y << std::endl;
+            });
         }
 
+        m_running = true;
         std::cout << "[Game] Initialized successfully" << std::endl;
+        return true;
     }
 
-    void update(float dt) {
+    void onUpdate(float dt, 
+                  const std::vector<TouchEvent>& touches,
+                  const std::vector<KeyEvent>& keys,
+                  const std::vector<MouseEvent>& mice) override {
         (void)dt;
+        (void)touches;
+        (void)keys;
+        (void)mice;
     }
 
-    void render() {
-        g_graphics->clear(0.1f, 0.1f, 0.15f, 1.0f);
+    void onRender(GameWork& work) override {
+        if (m_viewportDirty) {
+            buildViewportCommand(work, 0, 0, m_windowWidth, m_windowHeight);
+            m_viewportDirty = false;
+        }
 
-        g_graphics->drawTriangle(
-            -0.5f, -0.5f,  1.0f, 0.0f, 0.0f,
-             0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
-             0.0f,  0.5f,  0.0f, 0.0f, 1.0f
-        );
+        buildClearCommand(work, GL_COLOR_BUFFER_BIT, 0.1f, 0.1f, 0.15f, 1.0f);
 
-        g_graphics->flush();
+        if (g_graphics) {
+            g_graphics->recordDrawTriangle(
+                work,
+                -0.5f, -0.5f,  1.0f, 0.0f, 0.0f,
+                 0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
+                 0.0f,  0.5f,  0.0f, 0.0f, 1.0f
+            );
+        }
     }
 
-    void shutdown() {
+    void onShutdown() override {
         std::cout << "[Game] Shutting down..." << std::endl;
         if (auto* window = GetPlatform()->getWindowSystem()) {
             window->onWindowResize.disconnect(m_resizeSlotId);
@@ -81,15 +111,45 @@ public:
         if (auto* input = GetPlatform()->getInputSystem()) {
             input->onKey.disconnect(m_keySlotId);
             input->onTouch.disconnect(m_touchSlotId);
+            input->onMouse.disconnect(m_mouseSlotId);
         }
-        g_graphics.reset();
+    }
+
+    bool isRunning() const override {
+        return m_running;
     }
 
 private:
-    uint32_t m_resizeSlotId = 0, m_keySlotId = 0, m_touchSlotId = 0;
+    bool m_running = false;
+    uint32_t m_resizeSlotId = 0;
+    uint32_t m_keySlotId = 0;
+    uint32_t m_touchSlotId = 0;
+    uint32_t m_mouseSlotId = 0;
+    int m_windowWidth = 1280;
+    int m_windowHeight = 720;
+    bool m_viewportDirty = true;
 };
 
-static GameLogic* g_game = nullptr;
+static GameLogicImpl* g_gameLogic = nullptr;
+
+static void mainLoopFrame(float dt) {
+    (void)dt;
+
+    if (!g_threadModel || !g_threadModel->isRunning()) {
+        GetPlatform()->exitApplication();
+        return;
+    }
+
+    g_threadModel->onFrameBegin();
+
+    GameWork* work = g_threadModel->getRenderWork();
+    if (work) {
+        g_renderExecutor.execute(*work);
+        g_threadModel->executeGpuTasks();
+    }
+
+    g_threadModel->onFrameEnd();
+}
 
 } // namespace spt
 
@@ -121,13 +181,29 @@ int main(int argc, char* argv[]) {
     }
 
     g_platform = platform.get();
-    static GameLogic game;
-    g_game = &game;
-    game.initialize();
+
+    ThreadConfig threadConfig;
+#ifdef __EMSCRIPTEN__
+    threadConfig.multithreaded = false;
+#else
+    threadConfig.multithreaded = true;
+    threadConfig.logicFps = 30;
+    threadConfig.renderFps = 60;
+#endif
+
+    g_threadModel = ThreadModel::create(threadConfig);
+
+    auto gameLogicPtr = std::make_unique<GameLogicImpl>();
+    g_gameLogic = gameLogicPtr.get();
+
+    if (!g_threadModel->initialize(threadConfig, std::move(gameLogicPtr))) {
+        std::cerr << "ThreadModel initialization failed" << std::endl;
+        return -1;
+    }
 
 #ifdef __EMSCRIPTEN__
     try {
-        platform->runMainLoop([](float dt) { g_game->update(dt); g_game->render(); });
+        platform->runMainLoop(mainLoopFrame);
     } catch (const std::exception& e) {
         std::string what = e.what() ? e.what() : "";
         if (what.find("unwind") != std::string::npos) {
@@ -139,8 +215,9 @@ int main(int argc, char* argv[]) {
         std::cout << "[Game] Main loop started" << std::endl;
     }
 #else
-    platform->runMainLoop([](float dt) { g_game->update(dt); g_game->render(); });
-    game.shutdown();
+    platform->runMainLoop(mainLoopFrame);
+    g_threadModel->shutdown();
+    g_graphics.reset();
     platform->shutdown();
 #endif
 

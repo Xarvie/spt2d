@@ -1,7 +1,9 @@
 #include "Graphics.h"
 #include "ShaderSources.h"
+#include "RenderCommandExecutor.h"
 #include <iostream>
 #include <cstring>
+#include <array>
 
 namespace spt {
 
@@ -99,6 +101,57 @@ void Graphics::flush() {
     glDrawArrays(GL_TRIANGLES, 0, m_vertexCount);
 
     m_vertexCount = 0;
+}
+
+GLuint Graphics::program() const {
+    return m_basicShader ? m_basicShader->getProgram() : 0;
+}
+
+void Graphics::recordDrawTriangle(GameWork& work,
+                                   float x1, float y1, float r1, float g1, float b1,
+                                   float x2, float y2, float r2, float g2, float b2,
+                                   float x3, float y3, float r3, float g3, float b3) {
+    struct TriangleDrawCmd {
+        GLuint program;
+        GLuint vao;
+        GLuint vbo;
+        uint32_t vertexOffset;
+        uint32_t mvpOffset;
+    };
+
+    static auto execTriangle = [](const void* p) {
+        auto& cmd = *static_cast<const TriangleDrawCmd*>(p);
+        
+        glUseProgram(cmd.program);
+        
+        GLint mvpLoc = glGetUniformLocation(cmd.program, "u_mvp");
+        
+        glBindVertexArray(cmd.vao);
+        glBindBuffer(GL_ARRAY_BUFFER, cmd.vbo);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+    };
+
+    TriangleDrawCmd cmd;
+    cmd.program = program();
+    cmd.vao = m_vao;
+    cmd.vbo = m_vbo;
+    cmd.vertexOffset = 0;
+    cmd.mvpOffset = 0;
+
+    VertexPosColor vertices[3] = {
+        {x1, y1, r1, g1, b1, 1.0f},
+        {x2, y2, r2, g2, b2, 1.0f},
+        {x3, y3, r3, g3, b3, 1.0f}
+    };
+
+    work.gpuTasks.push([this, verts = std::array<VertexPosColor, 3>{vertices[0], vertices[1], vertices[2]}]() mutable {
+        m_basicShader->use();
+        m_basicShader->setMat4("u_mvp", m_mvp);
+        glBindVertexArray(m_vao);
+        glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, 3 * sizeof(VertexPosColor), verts.data());
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+    });
 }
 
 }
