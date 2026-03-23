@@ -2,96 +2,144 @@
 
 #include "GameWork.h"
 #include "../glad/glad.h"
+
+#include <vector>
+#include <numeric>
 #include <algorithm>
+#include <cstddef>
 
 namespace spt {
 
+// =============================================================================
+//  RenderStateCache
+//
+//  Tracks the currently-bound GL objects and avoids redundant state changes.
+//  Call reset() at the start of each frame (or whenever GL state may have
+//  been changed by external code) to force re-binding on the next use.
+//
+//  All methods return true if the GL call was actually issued, false if the
+//  state was already correct (useful for profiling/debug counters).
+// =============================================================================
 class RenderStateCache {
 public:
-    void reset() { *this = RenderStateCache{}; }
+    void reset() noexcept { *this = RenderStateCache{}; }
 
-    bool setProgram(GLuint program) {
-        if (program == currentProgram_) return false;
-        currentProgram_ = program;
+    bool setProgram(GLuint program) noexcept {
+        if (program == m_program) return false;
+        m_program = program;
         glUseProgram(program);
         return true;
     }
 
-    bool setVAO(GLuint vao) {
-        if (vao == currentVao_) return false;
-        currentVao_ = vao;
+    bool setVAO(GLuint vao) noexcept {
+        if (vao == m_vao) return false;
+        m_vao = vao;
         glBindVertexArray(vao);
         return true;
     }
 
-    bool setTexture(GLuint unit, GLenum target, GLuint tex) {
+    bool setTexture(GLuint unit, GLenum target, GLuint tex) noexcept {
         if (unit < kMaxTextureUnits) {
-            auto& slot = textureSlots_[unit];
+            auto& slot = m_texSlots[unit];
             if (slot.target == target && slot.id == tex) return false;
             slot = {target, tex};
         }
-        if (activeTextureUnit_ != unit) {
+        if (m_activeTexUnit != unit) {
             glActiveTexture(GL_TEXTURE0 + unit);
-            activeTextureUnit_ = unit;
+            m_activeTexUnit = unit;
         }
         glBindTexture(target, tex);
         return true;
     }
 
-    bool setBlend(bool enable) {
-        if (enable == blendEnabled_) return false;
-        blendEnabled_ = enable;
+    bool setBlend(bool enable) noexcept {
+        if (enable == m_blendEnabled) return false;
+        m_blendEnabled = enable;
         enable ? glEnable(GL_BLEND) : glDisable(GL_BLEND);
         return true;
     }
 
-    bool setBlendFunc(GLenum src, GLenum dst) {
-        if (src == blendSrc_ && dst == blendDst_) return false;
-        blendSrc_ = src; blendDst_ = dst;
+    bool setBlendFunc(GLenum src, GLenum dst) noexcept {
+        if (src == m_blendSrc && dst == m_blendDst) return false;
+        m_blendSrc = src;
+        m_blendDst = dst;
         glBlendFunc(src, dst);
         return true;
     }
 
-    bool setViewport(GLint x, GLint y, GLsizei w, GLsizei h) {
-        if (x == vpX_ && y == vpY_ && w == vpW_ && h == vpH_) return false;
-        vpX_ = x; vpY_ = y; vpW_ = w; vpH_ = h;
+    bool setDepthTest(bool enable) noexcept {
+        if (enable == m_depthTest) return false;
+        m_depthTest = enable;
+        enable ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
+        return true;
+    }
+
+    bool setDepthWrite(bool enable) noexcept {
+        if (enable == m_depthWrite) return false;
+        m_depthWrite = enable;
+        glDepthMask(enable ? GL_TRUE : GL_FALSE);
+        return true;
+    }
+
+    bool setViewport(GLint x, GLint y, GLsizei w, GLsizei h) noexcept {
+        if (x == m_vpX && y == m_vpY && w == m_vpW && h == m_vpH) return false;
+        m_vpX = x; m_vpY = y; m_vpW = w; m_vpH = h;
         glViewport(x, y, w, h);
         return true;
     }
 
 private:
-    static constexpr size_t kMaxTextureUnits = 16;
-    struct TextureSlot { GLenum target = 0; GLuint id = 0; };
+    static constexpr std::size_t kMaxTextureUnits = 16;
+    struct TexSlot { GLenum target = 0; GLuint id = 0; };
 
-    GLuint currentProgram_ = 0;
-    GLuint currentVao_ = 0;
-    GLuint activeTextureUnit_ = 0;
-    TextureSlot textureSlots_[kMaxTextureUnits] = {};
+    GLuint  m_program      = 0;
+    GLuint  m_vao          = 0;
+    GLuint  m_activeTexUnit = 0;
+    TexSlot m_texSlots[kMaxTextureUnits] = {};
 
-    bool blendEnabled_ = false;
-    GLenum blendSrc_ = GL_ONE;
-    GLenum blendDst_ = GL_ZERO;
+    bool   m_blendEnabled = false;
+    GLenum m_blendSrc     = GL_ONE;
+    GLenum m_blendDst     = GL_ZERO;
+    bool   m_depthTest    = false;
+    bool   m_depthWrite   = true;
 
-    GLint vpX_ = 0, vpY_ = 0;
-    GLsizei vpW_ = 0, vpH_ = 0;
+    GLint   m_vpX = 0, m_vpY = 0;
+    GLsizei m_vpW = 0, m_vpH = 0;
 };
+
+
+// =============================================================================
+//  Built-in command payload types
+//
+//  These are trivially-copyable structs that fit within
+//  RenderCommand::kPayloadSize (64 bytes) and are executed by a plain
+//  function pointer – no std::function, no heap allocation.
+// =============================================================================
 
 struct ClearCmd {
-    GLbitfield mask;
-    float color[4];
-    float depth;
-    int stencil;
+    GLbitfield mask      = 0;
+    float      color[4]  = {0, 0, 0, 1};
+    float      depth     = 1.0f;
+    int        stencil   = 0;
 };
+static_assert(sizeof(ClearCmd) <= RenderCommand::kPayloadSize);
+static_assert(std::is_trivially_copyable<ClearCmd>::value);
 
 struct SetViewportCmd {
-    GLint x, y;
-    GLsizei w, h;
+    GLint   x = 0, y = 0;
+    GLsizei w = 0, h = 0;
 };
+static_assert(sizeof(SetViewportCmd) <= RenderCommand::kPayloadSize);
+static_assert(std::is_trivially_copyable<SetViewportCmd>::value);
 
+
+// =============================================================================
+//  Built-in execute functions
+// =============================================================================
 namespace RenderCommandExec {
 
-inline void clear(const void* p) {
-    auto& c = *static_cast<const ClearCmd*>(p);
+inline void clear(const void* p) noexcept {
+    const auto& c = *static_cast<const ClearCmd*>(p);
     if (c.mask & GL_COLOR_BUFFER_BIT)
         glClearColor(c.color[0], c.color[1], c.color[2], c.color[3]);
     if (c.mask & GL_DEPTH_BUFFER_BIT)
@@ -101,63 +149,108 @@ inline void clear(const void* p) {
     glClear(c.mask);
 }
 
-inline void setViewport(const void* p) {
-    auto& c = *static_cast<const SetViewportCmd*>(p);
+inline void setViewport(const void* p) noexcept {
+    const auto& c = *static_cast<const SetViewportCmd*>(p);
     glViewport(c.x, c.y, c.w, c.h);
 }
 
-}
+} // namespace RenderCommandExec
 
+
+// =============================================================================
+//  RenderCommandExecutor
+//
+//  Sorts and dispatches the RenderCommand list recorded in a GameWork frame.
+//
+//  Performance notes
+//  ──────────────────
+//  The sort-index vector is a member of the executor and retains its capacity
+//  across frames; after the first frame with N commands it will not allocate
+//  again until N grows.  This gives zero heap allocation in steady state.
+//
+//  Sort stability ensures that commands with equal sort keys are dispatched
+//  in submission order (preserving the logic thread's intended draw order
+//  within the same material bucket).
+// =============================================================================
 class RenderCommandExecutor {
 public:
+    explicit RenderCommandExecutor(std::size_t reserveCapacity = 256) {
+        m_sortIndices.reserve(reserveCapacity);
+    }
+
+    /// Execute all render commands in `work`, sorted by sortKey.
+    /// Must be called on the render thread (GL context must be current).
     void execute(const GameWork& work) {
-        if (work.hasViewport) {
-            glViewport(work.viewportX, work.viewportY, work.viewportW, work.viewportH);
+        // Apply the per-frame viewport override if one was set.
+        if (work.viewport.valid) {
+            glViewport(work.viewport.x, work.viewport.y,
+                       work.viewport.w, work.viewport.h);
         }
 
-        auto& commands = work.renderCommands;
-        
-        std::vector<size_t> indices(commands.size());
-        for (size_t i = 0; i < commands.size(); ++i) indices[i] = i;
-        std::stable_sort(indices.begin(), indices.end(), 
-            [&commands](size_t a, size_t b) {
-                return commands[a].sortKey < commands[b].sortKey;
+        const auto& cmds = work.renderCommands;
+        if (cmds.empty()) return;
+
+        // Build a sort-index array.  Reusing the member vector avoids a heap
+        // allocation every frame once the high-water capacity is reached.
+        m_sortIndices.resize(cmds.size());
+        std::iota(m_sortIndices.begin(), m_sortIndices.end(), std::size_t{0});
+        std::stable_sort(m_sortIndices.begin(), m_sortIndices.end(),
+            [&cmds](std::size_t a, std::size_t b) noexcept {
+                return cmds[a].sortKey < cmds[b].sortKey;
             });
 
-        for (size_t idx : indices) {
-            commands[idx].execute();
+        for (std::size_t idx : m_sortIndices) {
+            cmds[idx].execute();
         }
     }
 
-    void reset() {
-        stateCache_.reset();
-    }
+    /// Reset driver-side state tracking.  Call at frame start if external
+    /// code may have changed GL state since the last execute() call.
+    void resetStateCache() noexcept { m_stateCache.reset(); }
+
+    RenderStateCache& stateCache() noexcept { return m_stateCache; }
 
 private:
-    RenderStateCache stateCache_;
+    RenderStateCache         m_stateCache;
+    std::vector<std::size_t> m_sortIndices;   // reusable; retains capacity
 };
 
-inline void buildClearCommand(GameWork& work, GLbitfield mask,
-                               float r = 0, float g = 0, float b = 0, float a = 1,
-                               float depth = 1.0f, int stencil = 0) {
+
+// =============================================================================
+//  Convenience command builders
+//
+//  These free functions create fully-formed RenderCommands and append them to
+//  the work's render command list.  They are the preferred way to emit clear
+//  and viewport commands from IGameLogic::onRender().
+// =============================================================================
+
+inline void buildClearCommand(GameWork& work,
+                               GLbitfield mask,
+                               float r = 0.0f, float g = 0.0f,
+                               float b = 0.0f, float a = 1.0f,
+                               float depth   = 1.0f,
+                               int   stencil = 0) {
     ClearCmd cmd;
-    cmd.mask = mask;
-    cmd.color[0] = r; cmd.color[1] = g;
-    cmd.color[2] = b; cmd.color[3] = a;
-    cmd.depth = depth;
-    cmd.stencil = stencil;
-    
-    work.renderCommands.push_back(RenderCommand::create(cmd, RenderCommandExec::clear));
+    cmd.mask      = mask;
+    cmd.color[0]  = r; cmd.color[1] = g;
+    cmd.color[2]  = b; cmd.color[3] = a;
+    cmd.depth     = depth;
+    cmd.stencil   = stencil;
+    work.renderCommands.push_back(
+        RenderCommand::create(cmd, RenderCommandExec::clear));
 }
 
-inline void buildViewportCommand(GameWork& work, GLint x, GLint y, GLsizei w, GLsizei h) {
+inline void buildViewportCommand(GameWork& work,
+                                  GLint x, GLint y,
+                                  GLsizei w, GLsizei h) {
+    // Record a RenderCommand that issues the glViewport call in sorted order.
     SetViewportCmd cmd{x, y, w, h};
-    work.renderCommands.push_back(RenderCommand::create(cmd, RenderCommandExec::setViewport));
-    work.hasViewport = true;
-    work.viewportX = x;
-    work.viewportY = y;
-    work.viewportW = w;
-    work.viewportH = h;
+    work.renderCommands.push_back(
+        RenderCommand::create(cmd, RenderCommandExec::setViewport));
+
+    // Also update the frame-level viewport so RenderCommandExecutor can
+    // apply it before any commands run (useful for scissor / state init).
+    work.setViewport(x, y, static_cast<int>(w), static_cast<int>(h));
 }
 
-}
+} // namespace spt

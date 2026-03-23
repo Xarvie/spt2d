@@ -248,7 +248,8 @@ public:
     }
 
     void sendHttpRequest(const HttpRequest& request, std::function<void(const HttpResponse&)> callback) override {
-        int id = m_callbackManager.registerCallback(std::move(callback), 15.0f);
+        auto handle = m_callbackManager.add(std::move(callback), nullptr, 15.0f);
+        int id = static_cast<int>(handle.id());
         {
             std::lock_guard<std::mutex> lock(m_taskMutex);
             m_taskQueue.push({id, request});
@@ -259,8 +260,7 @@ public:
     std::string getNetworkType() const override { return "wifi"; }
 
     void update(float dt) override {
-        HttpResponse timeoutResp{ false, 408, "", "Request Timeout" };
-        m_callbackManager.tick(dt, timeoutResp);
+        m_callbackManager.tick(dt);
 
         std::queue<HttpResult> results;
         {
@@ -268,7 +268,7 @@ public:
             std::swap(results, m_resultQueue);
         }
         while (!results.empty()) {
-            m_callbackManager.invokeAndRemove(results.front().callbackId, results.front().response);
+            m_callbackManager.invoke(results.front().callbackId, results.front().response);
             results.pop();
         }
     }
@@ -417,6 +417,7 @@ private:
 };
 
 std::unique_ptr<IPlatformHub> createPlatformSdl3() {
+    createPlatformSdl3();
     return std::make_unique<Sdl3PlatformHub>();
 }
 

@@ -47,7 +47,7 @@ EMSCRIPTEN_KEEPALIVE void WxBridge_OnSafeAreaChange(int l, int t, int r, int b) 
 EMSCRIPTEN_KEEPALIVE void WxBridge_OnHttpResponse(int cbId, int success, int status, const char* data, const char* errMsg) {
     if (g_httpCallbackManager) {
         HttpResponse resp{ success != 0, status, data ? data : "", errMsg ? errMsg : "" };
-        g_httpCallbackManager->invokeAndRemove(cbId, resp);
+        g_httpCallbackManager->invoke(cbId, resp);
     }
 }
 
@@ -147,7 +147,8 @@ public:
     void shutdown() override { g_networkSystem = nullptr; g_httpCallbackManager = nullptr; }
 
     void sendHttpRequest(const HttpRequest& req, std::function<void(const HttpResponse&)> cb) override {
-        int id = m_callbackManager.registerCallback(std::move(cb), 10.0f);
+        auto handle = m_callbackManager.add(std::move(cb), nullptr, 10.0f);
+        int id = static_cast<int>(handle.id());
         std::string headersJson = "{";
         bool first = true;
         for (const auto& h : req.headers) {
@@ -196,8 +197,7 @@ public:
     }
 
     void update(float dt) override {
-        HttpResponse timeoutResp{ false, 408, "", "Timeout" };
-        m_callbackManager.tick(dt, timeoutResp);
+        m_callbackManager.tick(dt);
     }
 
 private:

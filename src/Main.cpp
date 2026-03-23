@@ -2,6 +2,7 @@
 #include "graphics/Graphics.h"
 #include "graphics/RenderCommandExecutor.h"
 #include "core/ThreadModel.h"
+#include "core/Signal.h"
 
 #include <iostream>
 #include <exception>
@@ -37,7 +38,7 @@ public:
         m_windowWidth = windowInfo.windowWidth;
         m_windowHeight = windowInfo.windowHeight;
 
-        m_resizeSlotId = GetPlatform()->getWindowSystem()->onWindowResize.connect([this](int w, int h) {
+        m_resizeConn = GetPlatform()->getWindowSystem()->onWindowResize.connect([this](int w, int h) {
             std::cout << "[Game] Window resized: " << w << "x" << h << std::endl;
             m_windowWidth = w;
             m_windowHeight = h;
@@ -45,7 +46,7 @@ public:
         });
 
         if (auto* input = GetPlatform()->getInputSystem()) {
-            m_keySlotId = input->onKey.connect([](const KeyEvent& e) {
+            m_keyConn = input->onKey.connect([](const KeyEvent& e) {
                 if (e.type == KeyEvent::Down) {
                     std::cout << "[Game] Key pressed: " << e.key << std::endl;
                     if (e.key == "Escape" || e.key == "q") {
@@ -54,7 +55,7 @@ public:
                 }
             });
 
-            m_touchSlotId = input->onTouch.connect([](const TouchEvent& e) {
+            m_touchConn = input->onTouch.connect([](const TouchEvent& e) {
                 const char* typeName = e.type == TouchEvent::Begin ? "Begin" :
                                        e.type == TouchEvent::Move ? "Move" :
                                        e.type == TouchEvent::End ? "End" : "Cancel";
@@ -62,7 +63,7 @@ public:
                           << " x=" << e.x << " y=" << e.y << std::endl;
             });
 
-            m_mouseSlotId = input->onMouse.connect([](const MouseEvent& e) {
+            m_mouseConn = input->onMouse.connect([](const MouseEvent& e) {
                 const char* typeName = e.type == MouseEvent::Down ? "Down" :
                                        e.type == MouseEvent::Up ? "Up" :
                                        e.type == MouseEvent::Move ? "Move" : "Wheel";
@@ -75,14 +76,9 @@ public:
         return true;
     }
 
-    void onUpdate(float dt, 
-                  const std::vector<TouchEvent>& touches,
-                  const std::vector<KeyEvent>& keys,
-                  const std::vector<MouseEvent>& mice) override {
+    void onUpdate(float dt, const InputFrame& input) override {
         (void)dt;
-        (void)touches;
-        (void)keys;
-        (void)mice;
+        (void)input;
     }
 
     void onRender(GameWork& work) override {
@@ -94,7 +90,7 @@ public:
         buildClearCommand(work, GL_COLOR_BUFFER_BIT, 0.1f, 0.1f, 0.15f, 1.0f);
 
         if (g_graphics) {
-            g_graphics->recordDrawTriangle(
+            g_graphics->recordTriangle(
                 work,
                 -0.5f, -0.5f,  1.0f, 0.0f, 0.0f,
                  0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
@@ -105,14 +101,10 @@ public:
 
     void onShutdown() override {
         std::cout << "[Game] Shutting down..." << std::endl;
-        if (auto* window = GetPlatform()->getWindowSystem()) {
-            window->onWindowResize.disconnect(m_resizeSlotId);
-        }
-        if (auto* input = GetPlatform()->getInputSystem()) {
-            input->onKey.disconnect(m_keySlotId);
-            input->onTouch.disconnect(m_touchSlotId);
-            input->onMouse.disconnect(m_mouseSlotId);
-        }
+        m_resizeConn.disconnect();
+        m_keyConn.disconnect();
+        m_touchConn.disconnect();
+        m_mouseConn.disconnect();
     }
 
     bool isRunning() const override {
@@ -121,10 +113,10 @@ public:
 
 private:
     bool m_running = false;
-    uint32_t m_resizeSlotId = 0;
-    uint32_t m_keySlotId = 0;
-    uint32_t m_touchSlotId = 0;
-    uint32_t m_mouseSlotId = 0;
+    ScopedConnection<int, int> m_resizeConn;
+    ScopedConnection<const KeyEvent&> m_keyConn;
+    ScopedConnection<const TouchEvent&> m_touchConn;
+    ScopedConnection<const MouseEvent&> m_mouseConn;
     int m_windowWidth = 1280;
     int m_windowHeight = 720;
     bool m_viewportDirty = true;
@@ -142,10 +134,9 @@ static void mainLoopFrame(float dt) {
 
     g_threadModel->onFrameBegin();
 
-    GameWork* work = g_threadModel->getRenderWork();
+    const GameWork* work = g_threadModel->getRenderWork();
     if (work) {
         g_renderExecutor.execute(*work);
-        g_threadModel->executeGpuTasks();
     }
 
     g_threadModel->onFrameEnd();
@@ -169,6 +160,8 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+
+
     PlatformConfig config;
     config.width = 1280;
     config.height = 720;
@@ -187,8 +180,8 @@ int main(int argc, char* argv[]) {
     threadConfig.multithreaded = false;
 #else
     threadConfig.multithreaded = true;
-    threadConfig.logicFps = 30;
-    threadConfig.renderFps = 60;
+    threadConfig.logicHz = 30;
+    threadConfig.renderHz = 60;
 #endif
 
     g_threadModel = ThreadModel::create(threadConfig);
