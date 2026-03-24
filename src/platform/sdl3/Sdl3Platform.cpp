@@ -417,7 +417,6 @@ private:
 };
 
 std::unique_ptr<IPlatformHub> createPlatformSdl3() {
-    createPlatformSdl3();
     return std::make_unique<Sdl3PlatformHub>();
 }
 

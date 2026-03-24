@@ -17,7 +17,9 @@ target_include_directories(game PRIVATE
     ${SRC_DIR}/core
     ${SRC_DIR}/platform
     ${SRC_DIR}/graphics
+    ${SRC_DIR}/resource
     ${SRC_DIR}/glad
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs
     ${GLM_ROOT}
 )
 
@@ -31,7 +33,12 @@ if(EMSCRIPTEN)
             ${SRC_DIR}/platform/wx/WxPlatform.cpp
             ${SRC_DIR}/graphics/Shader.cpp
             ${SRC_DIR}/graphics/Graphics.cpp
+            ${SRC_DIR}/graphics/Texture.cpp
+            ${SRC_DIR}/graphics/Canvas.cpp
             ${SRC_DIR}/core/ThreadModel.cpp
+            ${SRC_DIR}/resource/ResourceManager.cpp
+            ${SRC_DIR}/resource/TextureResource.cpp
+            ${SRC_DIR}/resource/RawDataResource.cpp
             ${SRC_DIR}/glad/glad.c
         )
 
@@ -52,7 +59,12 @@ if(EMSCRIPTEN)
             ${SRC_DIR}/platform/web/WebPlatform.cpp
             ${SRC_DIR}/graphics/Shader.cpp
             ${SRC_DIR}/graphics/Graphics.cpp
+            ${SRC_DIR}/graphics/Texture.cpp
+            ${SRC_DIR}/graphics/Canvas.cpp
             ${SRC_DIR}/core/ThreadModel.cpp
+            ${SRC_DIR}/resource/ResourceManager.cpp
+            ${SRC_DIR}/resource/TextureResource.cpp
+            ${SRC_DIR}/resource/RawDataResource.cpp
             ${SRC_DIR}/glad/glad.c
         )
         target_link_options(game PRIVATE
@@ -72,7 +84,12 @@ elseif(APPLE)
         ${SRC_DIR}/platform/sdl3/Sdl3Platform.cpp
         ${SRC_DIR}/graphics/Shader.cpp
         ${SRC_DIR}/graphics/Graphics.cpp
+        ${SRC_DIR}/graphics/Texture.cpp
+        ${SRC_DIR}/graphics/Canvas.cpp
         ${SRC_DIR}/core/ThreadModel.cpp
+        ${SRC_DIR}/resource/ResourceManager.cpp
+        ${SRC_DIR}/resource/TextureResource.cpp
+        ${SRC_DIR}/resource/RawDataResource.cpp
         ${SRC_DIR}/glad/glad.c
     )
     find_package(OpenGL REQUIRED)
@@ -85,7 +102,12 @@ elseif(UNIX)
         ${SRC_DIR}/platform/sdl3/Sdl3Platform.cpp
         ${SRC_DIR}/graphics/Shader.cpp
         ${SRC_DIR}/graphics/Graphics.cpp
+        ${SRC_DIR}/graphics/Texture.cpp
+        ${SRC_DIR}/graphics/Canvas.cpp
         ${SRC_DIR}/core/ThreadModel.cpp
+        ${SRC_DIR}/resource/ResourceManager.cpp
+        ${SRC_DIR}/resource/TextureResource.cpp
+        ${SRC_DIR}/resource/RawDataResource.cpp
         ${SRC_DIR}/glad/glad.c
     )
     find_package(OpenGL REQUIRED)
@@ -98,7 +120,12 @@ else()
         ${SRC_DIR}/platform/sdl3/Sdl3Platform.cpp
         ${SRC_DIR}/graphics/Shader.cpp
         ${SRC_DIR}/graphics/Graphics.cpp
+        ${SRC_DIR}/graphics/Texture.cpp
+        ${SRC_DIR}/graphics/Canvas.cpp
         ${SRC_DIR}/core/ThreadModel.cpp
+        ${SRC_DIR}/resource/ResourceManager.cpp
+        ${SRC_DIR}/resource/TextureResource.cpp
+        ${SRC_DIR}/resource/RawDataResource.cpp
         ${SRC_DIR}/glad/glad.c
     )
     target_include_directories(game PRIVATE "${SDL3_ROOT}/include")
