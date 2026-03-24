@@ -7,7 +7,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 set(SDL3_ROOT "C:/msvcpkg/SDL3")
-set(GLM_ROOT "C:/Users/ftp/WeChatProjects/spt2d_old/libs/glm")
+set(GLM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/libs/glm")
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 add_executable(game)
@@ -19,8 +19,15 @@ target_include_directories(game PRIVATE
     ${SRC_DIR}/graphics
     ${SRC_DIR}/resource
     ${SRC_DIR}/glad
+    ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/libs
     ${GLM_ROOT}
+)
+
+set(SPT3D_SOURCES
+    ${SRC_DIR}/core/Color.cpp
+    ${SRC_DIR}/core/Geometry.cpp
+    ${SRC_DIR}/core/Lifecycle.cpp
 )
 
 if(EMSCRIPTEN)
@@ -40,6 +47,7 @@ if(EMSCRIPTEN)
             ${SRC_DIR}/resource/TextureResource.cpp
             ${SRC_DIR}/resource/RawDataResource.cpp
             ${SRC_DIR}/glad/glad.c
+            ${SPT3D_SOURCES}
         )
 
         target_link_options(game PRIVATE
@@ -66,6 +74,7 @@ if(EMSCRIPTEN)
             ${SRC_DIR}/resource/TextureResource.cpp
             ${SRC_DIR}/resource/RawDataResource.cpp
             ${SRC_DIR}/glad/glad.c
+            ${SPT3D_SOURCES}
         )
         target_link_options(game PRIVATE
             -sWASM=1
@@ -91,6 +100,7 @@ elseif(APPLE)
         ${SRC_DIR}/resource/TextureResource.cpp
         ${SRC_DIR}/resource/RawDataResource.cpp
         ${SRC_DIR}/glad/glad.c
+        ${SPT3D_SOURCES}
     )
     find_package(OpenGL REQUIRED)
     target_link_libraries(game PRIVATE OpenGL::GL)
@@ -109,6 +119,7 @@ elseif(UNIX)
         ${SRC_DIR}/resource/TextureResource.cpp
         ${SRC_DIR}/resource/RawDataResource.cpp
         ${SRC_DIR}/glad/glad.c
+        ${SPT3D_SOURCES}
     )
     find_package(OpenGL REQUIRED)
     target_link_libraries(game PRIVATE OpenGL::GL)
@@ -127,6 +138,7 @@ else()
         ${SRC_DIR}/resource/TextureResource.cpp
         ${SRC_DIR}/resource/RawDataResource.cpp
         ${SRC_DIR}/glad/glad.c
+        ${SPT3D_SOURCES}
     )
     target_include_directories(game PRIVATE "${SDL3_ROOT}/include")
     target_link_libraries(game PRIVATE "${SDL3_ROOT}/lib/x64/SDL3.lib")
