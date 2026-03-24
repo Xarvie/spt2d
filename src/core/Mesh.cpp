@@ -16,6 +16,7 @@ struct Mesh::Impl {
     int vertexCount = 0;
     bool indexed = false;
     bool dynamic = false;
+    AABB bounds = {{0,0,0}, {0,0,0}};
     
     Impl() {
         glGenVertexArrays(1, &vao);
@@ -32,6 +33,11 @@ struct Mesh::Impl {
 
 bool Mesh::Valid() const { return p && p->vao != 0; }
 Mesh::operator bool() const { return Valid(); }
+ResState Mesh::State() const { return Valid() ? ResState::Ready : ResState::Failed; }
+bool Mesh::Ready() const { return Valid(); }
+int Mesh::Verts() const { return p ? p->vertexCount : 0; }
+int Mesh::Indices() const { return p ? p->indexCount : 0; }
+AABB Mesh::Bounds() const { return p ? p->bounds : AABB{{0,0,0},{0,0,0}}; }
 
 struct MeshBuilder::Impl {
     std::vector<float> positions;
@@ -152,6 +158,25 @@ Mesh MeshBuilder::Build() {
     
     mesh.p->vertexCount = vertexCount;
     mesh.p->dynamic = p->dynamic;
+    
+    AABB bounds;
+    bounds.min = Vec3(std::numeric_limits<float>::max());
+    bounds.max = Vec3(std::numeric_limits<float>::lowest());
+    
+    for (int i = 0; i < vertexCount; ++i) {
+        if (i * 3 + 2 < p->positions.size()) {
+            float x = p->positions[i * 3 + 0];
+            float y = p->positions[i * 3 + 1];
+            float z = p->positions[i * 3 + 2];
+            bounds.min.x = std::min(bounds.min.x, x);
+            bounds.min.y = std::min(bounds.min.y, y);
+            bounds.min.z = std::min(bounds.min.z, z);
+            bounds.max.x = std::max(bounds.max.x, x);
+            bounds.max.y = std::max(bounds.max.y, y);
+            bounds.max.z = std::max(bounds.max.z, z);
+        }
+    }
+    mesh.p->bounds = bounds;
     
     std::vector<float> interleaved;
     interleaved.reserve(vertexCount * 14);

@@ -1192,6 +1192,26 @@ void Log(LogLvl lvl, const char* fmt, ...);
 using LogFn = std::function<void(LogLvl, std::string_view)>;
 void SetLogCallback(LogFn fn);
 
+// GL Error checking (debug only)
+#ifdef _DEBUG
+#define GL_CHECK(call) do { \
+    call; \
+    GLenum err = glGetError(); \
+    if (err != GL_NO_ERROR) { \
+        spt3d::Log(spt3d::LogLvl::Error, "[GL Error] 0x%X at %s:%d", err, __FILE__, __LINE__); \
+    } \
+} while(0)
+#else
+#define GL_CHECK(call) call
+#endif
+
+#define GL_CHECK_ERROR() do { \
+    GLenum err = glGetError(); \
+    if (err != GL_NO_ERROR) { \
+        spt3d::Log(spt3d::LogLvl::Error, "[GL Error] 0x%X at %s:%d", err, __FILE__, __LINE__); \
+    } \
+} while(0)
+
 void Clipboard(std::string_view text);
 void GetClipboard(std::function<void(std::string_view, bool)> cb);
 void OpenURL(std::string_view url);

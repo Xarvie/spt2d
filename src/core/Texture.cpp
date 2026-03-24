@@ -6,6 +6,7 @@
 
 #include <unordered_map>
 #include <mutex>
+#include <random>
 
 namespace spt3d {
 
@@ -154,8 +155,10 @@ Texture NormalTex() {
 
 Texture NoiseTex(int w, int h) {
     std::vector<uint8_t> data(w * h * 4);
+    std::mt19937 rng(std::random_device{}());
+    std::uniform_int_distribution<int> dist(0, 255);
     for (int i = 0; i < w * h * 4; i += 4) {
-        uint8_t v = static_cast<uint8_t>(rand() % 256);
+        uint8_t v = static_cast<uint8_t>(dist(rng));
         data[i] = data[i+1] = data[i+2] = v;
         data[i+3] = 255;
     }
