@@ -261,7 +261,9 @@ struct Texture {
     struct Impl; std::shared_ptr<Impl> p;
     Texture() = default;
     ~Texture() = default;
+    Texture(const Texture&) = default;
     Texture(Texture&&) noexcept = default;
+    Texture& operator=(const Texture&) = default;
     Texture& operator=(Texture&&) noexcept = default;
     ResState State() const;
     bool Ready() const;
@@ -386,6 +388,13 @@ struct Shader {
     int uniformLocation(std::string_view name) const;
     std::string lastError() const;
     unsigned int program() const;
+    
+    void setInt(std::string_view name, int value) const;
+    void setFloat(std::string_view name, float value) const;
+    void setVec2(std::string_view name, float x, float y) const;
+    void setVec3(std::string_view name, float x, float y, float z) const;
+    void setVec4(std::string_view name, float x, float y, float z, float w) const;
+    void setMat4(std::string_view name, const float* matrix) const;
 };
 
 Shader CreateShader(std::initializer_list<ShaderPass> passes);
@@ -407,7 +416,9 @@ struct Material {
     struct Impl; std::shared_ptr<Impl> p;
     Material() = default;
     ~Material() = default;
+    Material(const Material&) = default;
     Material(Material&&) noexcept = default;
+    Material& operator=(const Material&) = default;
     Material& operator=(Material&&) noexcept = default;
     bool Valid() const;
     Shader* GetShader() const;
@@ -463,6 +474,7 @@ struct Mesh {
     int  Verts() const;
     int  Indices() const;
     AABB Bounds() const;
+    unsigned int GL() const;
     explicit operator bool() const;
 };
 
@@ -750,6 +762,8 @@ struct StageDesc {
     // ---- blit stage ----
     Material blit_material;
     std::vector<Texture> blit_inputs;
+    
+    void AddBlitInput(Texture tex) { blit_inputs.push_back(std::move(tex)); }
 
     // ---- custom stage ----
     std::function<void()> custom_fn;

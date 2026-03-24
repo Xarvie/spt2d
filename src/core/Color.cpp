@@ -8,6 +8,10 @@ Vec4 ToVec4(Color c) {
     return Vec4(c.r / 255.0f, c.g / 255.0f, c.b / 255.0f, c.a / 255.0f);
 }
 
+Vec3 ToVec3(Color c) {
+    return Vec3(c.r / 255.0f, c.g / 255.0f, c.b / 255.0f);
+}
+
 Color FromVec4(Vec4 v) {
     return Color{
         static_cast<uint8_t>(std::clamp(v.r * 255.0f, 0.0f, 255.0f)),
@@ -15,6 +19,42 @@ Color FromVec4(Vec4 v) {
         static_cast<uint8_t>(std::clamp(v.b * 255.0f, 0.0f, 255.0f)),
         static_cast<uint8_t>(std::clamp(v.a * 255.0f, 0.0f, 255.0f))
     };
+}
+
+Color FromVec3(Vec3 v) {
+    return Color{
+        static_cast<uint8_t>(std::clamp(v.r * 255.0f, 0.0f, 255.0f)),
+        static_cast<uint8_t>(std::clamp(v.g * 255.0f, 0.0f, 255.0f)),
+        static_cast<uint8_t>(std::clamp(v.b * 255.0f, 0.0f, 255.0f)),
+        255
+    };
+}
+
+Vec3 ToHSV(Color c) {
+    float r = c.r / 255.0f;
+    float g = c.g / 255.0f;
+    float b = c.b / 255.0f;
+    
+    float maxVal = std::max({r, g, b});
+    float minVal = std::min({r, g, b});
+    float delta = maxVal - minVal;
+    
+    float h = 0.0f;
+    float s = (maxVal == 0.0f) ? 0.0f : delta / maxVal;
+    float v = maxVal;
+    
+    if (delta > 0.0f) {
+        if (maxVal == r) {
+            h = 60.0f * std::fmod((g - b) / delta, 6.0f);
+        } else if (maxVal == g) {
+            h = 60.0f * ((b - r) / delta + 2.0f);
+        } else {
+            h = 60.0f * ((r - g) / delta + 4.0f);
+        }
+    }
+    if (h < 0.0f) h += 360.0f;
+    
+    return Vec3(h, s, v);
 }
 
 Color FromHSV(float h, float s, float v) {

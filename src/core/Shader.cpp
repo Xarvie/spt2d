@@ -212,4 +212,39 @@ Shader SkyboxShader() {
     return DefaultShader3D();
 }
 
+void Shader::setInt(std::string_view name, int value) const {
+    if (!p || p->passes.empty()) return;
+    p->passes[0].program.setInt(name, value);
+}
+
+void Shader::setFloat(std::string_view name, float value) const {
+    if (!p || p->passes.empty()) return;
+    p->passes[0].program.setFloat(name, value);
+}
+
+void Shader::setVec2(std::string_view name, float x, float y) const {
+    if (!p || p->passes.empty()) return;
+    p->passes[0].program.setVec2(name, x, y);
+}
+
+void Shader::setVec3(std::string_view name, float x, float y, float z) const {
+    if (!p || p->passes.empty()) return;
+    p->passes[0].program.setVec3(name, x, y, z);
+}
+
+void Shader::setVec4(std::string_view name, float x, float y, float z, float w) const {
+    if (!p || p->passes.empty()) return;
+    p->passes[0].program.setVec4(name, x, y, z, w);
+}
+
+void Shader::setMat4(std::string_view name, const float* matrix) const {
+    if (!p || p->passes.empty()) return;
+    p->passes[0].program.setMat4(name, matrix);
+}
+
+void Shader::use() const {
+    if (!p || p->passes.empty()) return;
+    p->passes[0].program.use();
+}
+
 }

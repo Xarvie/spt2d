@@ -304,7 +304,7 @@ static void blitToTarget(Texture src, RenderTarget dst, Shader& shader) {
     shader.setInt("u_texture", 0);
     
     Mesh tri = GenFullscreenTri();
-    glBindVertexArray(detail::GetMeshVAO(tri));
+    glBindVertexArray(tri.GL());
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
 }
@@ -329,7 +329,7 @@ void Blit(Texture src, RenderTarget dst, Material mat) {
     shaderPtr->setInt("u_texture", 0);
     
     Mesh tri = GenFullscreenTri();
-    glBindVertexArray(detail::GetMeshVAO(tri));
+    glBindVertexArray(tri.GL());
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
 }
@@ -363,7 +363,7 @@ void BlitToScreen(Texture src, Rect dst_rect) {
     s_blitShader.setInt("u_texture", 0);
     
     Mesh tri = GenFullscreenTri();
-    glBindVertexArray(detail::GetMeshVAO(tri));
+    glBindVertexArray(tri.GL());
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
 }
@@ -396,7 +396,7 @@ void BlitMulti(std::initializer_list<Texture> inputs, RenderTarget dst, Material
     }
     
     Mesh tri = GenFullscreenTri();
-    glBindVertexArray(detail::GetMeshVAO(tri));
+    glBindVertexArray(tri.GL());
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
 }

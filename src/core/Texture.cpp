@@ -214,4 +214,51 @@ void UpdateRegion(Texture t, Rect region, const void* px) {
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+int FmtBytesPerPixel(Fmt f) {
+    switch (f) {
+        case Fmt::R8: return 1;
+        case Fmt::RG8: return 2;
+        case Fmt::RGBA8: return 4;
+        case Fmt::RGB8: return 3;
+        case Fmt::SRGB8: return 3;
+        case Fmt::SRGB8A8: return 4;
+        case Fmt::R16F: return 2;
+        case Fmt::RG16F: return 4;
+        case Fmt::RGBA16F: return 8;
+        case Fmt::R32F: return 4;
+        case Fmt::RG32F: return 8;
+        case Fmt::RGBA32F: return 16;
+        case Fmt::R11G11B10F: return 4;
+        case Fmt::Depth16: return 2;
+        case Fmt::Depth24: return 3;
+        case Fmt::D24S8: return 4;
+        case Fmt::D32F: return 4;
+        default: return 4;
+    }
+}
+
+bool FmtIsDepth(Fmt f) {
+    return f == Fmt::Depth16 || f == Fmt::Depth24 || f == Fmt::D24S8 || f == Fmt::D32F;
+}
+
+bool FmtIsCompressed(Fmt f) {
+    return f == Fmt::ETC2_RGB || f == Fmt::ETC2_RGBA || f == Fmt::ASTC_4x4 || f == Fmt::ASTC_8x8;
+}
+
+bool FmtIsFloat(Fmt f) {
+    switch (f) {
+        case Fmt::R16F:
+        case Fmt::RG16F:
+        case Fmt::RGBA16F:
+        case Fmt::R32F:
+        case Fmt::RG32F:
+        case Fmt::RGBA32F:
+        case Fmt::R11G11B10F:
+        case Fmt::D32F:
+            return true;
+        default:
+            return false;
+    }
+}
+
 }

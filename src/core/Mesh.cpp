@@ -38,6 +38,7 @@ bool Mesh::Ready() const { return Valid(); }
 int Mesh::Verts() const { return p ? p->vertexCount : 0; }
 int Mesh::Indices() const { return p ? p->indexCount : 0; }
 AABB Mesh::Bounds() const { return p ? p->bounds : AABB{{0,0,0},{0,0,0}}; }
+unsigned int Mesh::GL() const { return p ? p->vao : 0; }
 
 struct MeshBuilder::Impl {
     std::vector<float> positions;

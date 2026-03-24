@@ -37,6 +37,10 @@ set(SPT3D_SOURCES
     ${SRC_DIR}/core/Camera.cpp
     ${SRC_DIR}/core/Light.cpp
     ${SRC_DIR}/core/Model.cpp
+    ${SRC_DIR}/core/DrawList.cpp
+    ${SRC_DIR}/core/PostEffects.cpp
+    ${SRC_DIR}/core/DebugDraw.cpp
+    ${SRC_DIR}/core/Random.cpp
     ${SRC_DIR}/graphics/Shader.cpp
     ${SRC_DIR}/vfs/VirtualFileSystem.cpp
     ${SRC_DIR}/vfs/VFS.cpp
