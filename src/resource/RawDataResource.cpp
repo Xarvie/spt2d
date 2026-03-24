@@ -1,6 +1,6 @@
 #include "RawDataResource.h"
 
-namespace spt {
+namespace spt3d {
 
 RawDataResource::RawDataResource(const std::string& logicAddress, const std::string& physicalPath)
     : m_logicAddress(logicAddress)

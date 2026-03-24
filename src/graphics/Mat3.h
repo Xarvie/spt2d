@@ -3,7 +3,7 @@
 #include <cmath>
 #include <cstring>
 
-namespace spt {
+namespace spt3d {
 
 namespace Mat3 {
 

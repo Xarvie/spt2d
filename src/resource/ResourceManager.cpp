@@ -1,7 +1,7 @@
 #include "ResourceManager.h"
 #include <algorithm>
 
-namespace spt {
+namespace spt3d {
 
 ResourceManager* ResourceManager::s_instance = nullptr;
 

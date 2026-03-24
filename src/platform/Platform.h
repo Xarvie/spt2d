@@ -8,7 +8,7 @@
 #include <memory>
 #include "../core/Signal.h"
 
-namespace spt {
+namespace spt3d {
 
 // ============================================================================
 // Platform Types
@@ -209,4 +209,4 @@ std::unique_ptr<IPlatformHub> createPlatformWx();
 
 IPlatformHub* GetPlatform();
 
-} // namespace spt
+} // namespace spt3d

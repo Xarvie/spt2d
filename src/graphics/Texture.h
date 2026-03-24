@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace spt {
+namespace spt3d {
 
 class Texture {
 public:

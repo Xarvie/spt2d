@@ -13,7 +13,7 @@
 #include <condition_variable>
 #include <map>
 
-namespace spt {
+namespace spt3d {
 
 // ============================================================================
 // SDL3 Window System
@@ -420,6 +420,6 @@ std::unique_ptr<IPlatformHub> createPlatformSdl3() {
     return std::make_unique<Sdl3PlatformHub>();
 }
 
-} // namespace spt
+} // namespace spt3d
 
 #endif

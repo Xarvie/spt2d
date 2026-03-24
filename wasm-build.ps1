@@ -3,10 +3,10 @@ $env:EMSDK_NODE = "$EMSDK\node\22.16.0_64bit\bin\node.exe"
 $env:EMSDK_PYTHON = "$EMSDK\python\3.13.3_64bit\python.exe"
 $env:PATH = "$EMSDK;$EMSDK\upstream\emscripten;$env:PATH"
 
-Set-Location "C:\Users\ftp\WeChatProjects\spt2d"
+Set-Location "C:\Users\ftp\WeChatProjects\spt3d"
 
 Write-Host "========================================"
-Write-Host "spt-2d WASM Build Script"
+Write-Host "spt3d WASM Build Script"
 Write-Host "========================================"
 
 if ($args.Count -eq 0) {
@@ -37,8 +37,9 @@ function Build-Wx {
         -sUSE_WEBGL2=1 -sMIN_WEBGL_VERSION=2 -sFULL_ES3=1 `
         -sGL_WORKAROUND_SAFARI_GETCONTEXT_BUG=0 `
         --extern-pre-js wxgame-pre.js `
-        -O2 -o build-wx/game-wasm.js
-    
+        -O2 -o build-wx/game-wasm.js > temp-build.log 2>&1
+
+
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Build FAILED with exit code: $LASTEXITCODE" -ForegroundColor Red
         return $false
@@ -71,7 +72,7 @@ function Build-Web {
         "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','stringToUTF8','UTF8ToString','lengthBytesUTF8']" `
         -sENVIRONMENT=web -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=16777216 `
         -sUSE_WEBGL2=1 -sMIN_WEBGL_VERSION=2 -sFULL_ES3=1 `
-        -O2 -o build-web/game.js
+        -O2 -o build-web/game.js > temp-build.log 2>&1
     
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Build FAILED with exit code: $LASTEXITCODE" -ForegroundColor Red

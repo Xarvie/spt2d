@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string>
 
-namespace spt {
+namespace spt3d {
 
 enum class ResType : uint8_t {
     Invalid = 0,

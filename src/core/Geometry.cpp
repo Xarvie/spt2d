@@ -1,4 +1,4 @@
-#include "../spt3d.h"
+#include "../Spt3D.h"
 #include <algorithm>
 #include <cmath>
 

@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <type_traits>
 
-namespace spt {
+namespace spt3d {
 
 // =============================================================================
 //  DoubleBuffer<T>
@@ -228,4 +228,4 @@ private:
     int m_readSlot;
 };
 
-} // namespace spt
+} // namespace spt3d

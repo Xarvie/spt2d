@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <cstddef>
 
-namespace spt {
+namespace spt3d {
 
 // =============================================================================
 //  RenderStateCache
@@ -253,4 +253,4 @@ inline void buildViewportCommand(GameWork& work,
     work.setViewport(x, y, static_cast<int>(w), static_cast<int>(h));
 }
 
-} // namespace spt
+} // namespace spt3d

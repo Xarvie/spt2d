@@ -23,7 +23,7 @@
 #  include <windows.h>
 #endif
 
-namespace spt {
+namespace spt3d {
 
 namespace {
 
@@ -533,4 +533,4 @@ std::unique_ptr<ThreadModel> ThreadModel::create(const ThreadConfig& config) {
            : std::unique_ptr<ThreadModel>(std::make_unique<SingleThreadModel>());
 }
 
-} // namespace spt
+} // namespace spt3d

@@ -7,7 +7,7 @@
 
 #include <vector>
 
-namespace spt {
+namespace spt3d {
 
 class Canvas {
 public:

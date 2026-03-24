@@ -8,7 +8,7 @@
 #include <mutex>
 #include <iostream>
 
-namespace spt {
+namespace spt3d {
 
 struct ResourceSlot {
     IResource* resource = nullptr;

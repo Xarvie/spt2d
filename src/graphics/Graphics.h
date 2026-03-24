@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <type_traits>
 
-namespace spt {
+namespace spt3d {
 
 struct VertexPosColor {
     float x, y;
@@ -133,11 +133,11 @@ private:
 
     GLuint                  m_vao = 0;
     GLuint                  m_vbo = 0;
-    std::unique_ptr<Shader> m_basicShader;
+    std::unique_ptr<GLShader> m_basicShader;
 
     GLuint                  m_texVao = 0;
     GLuint                  m_texVbo = 0;
-    std::unique_ptr<Shader> m_textureShader;
+    std::unique_ptr<GLShader> m_textureShader;
 
     GLint m_mvpUniformLoc = -1;
     GLint m_texMvpUniformLoc = -1;
@@ -160,4 +160,4 @@ private:
     bool m_initialized = false;
 };
 
-} // namespace spt
+} // namespace spt3d

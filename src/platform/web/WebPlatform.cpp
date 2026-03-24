@@ -5,7 +5,7 @@
 #include <emscripten/html5.h>
 #include <iostream>
 
-namespace spt {
+namespace spt3d {
 
 static IInputSystem* g_inputSystem = nullptr;
 
@@ -247,6 +247,6 @@ std::unique_ptr<IPlatformHub> createPlatformWeb() {
     return std::make_unique<WebPlatformHub>();
 }
 
-} // namespace spt
+} // namespace spt3d
 
 #endif

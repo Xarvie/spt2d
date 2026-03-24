@@ -6,7 +6,7 @@
 #include <mutex>
 #include <memory>
 
-namespace spt {
+namespace spt3d {
 
 class TextureResource : public IResource {
 public:

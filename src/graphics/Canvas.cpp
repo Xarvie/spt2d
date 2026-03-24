@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace spt {
+namespace spt3d {
 
 Canvas::Canvas() {
     Mat3::identity(m_matrix);

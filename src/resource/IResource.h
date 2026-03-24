@@ -5,7 +5,7 @@
 #include <string>
 #include <functional>
 
-namespace spt {
+namespace spt3d {
 
 class IResource {
 public:

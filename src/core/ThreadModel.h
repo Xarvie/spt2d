@@ -11,7 +11,7 @@
 #include <memory>
 #include <cstdint>
 
-namespace spt {
+namespace spt3d {
 
 // =============================================================================
 //  InputFrame
@@ -199,4 +199,4 @@ public:
     static std::unique_ptr<ThreadModel> create(const ThreadConfig& config);
 };
 
-} // namespace spt
+} // namespace spt3d

@@ -8,7 +8,7 @@
 #include <vector>
 #include <cstdint>
 
-namespace spt {
+namespace spt3d {
 
 // =============================================================================
 //  AttribBinding
@@ -60,19 +60,18 @@ struct AttribBinding {
 //  The uniform cache is not thread-safe (no locking); it is expected that
 //  shaders are created, used, and destroyed on the render thread only.
 // =============================================================================
-class Shader {
+class GLShader {
 public:
-    // Default attribute bindings matching ShaderSources.h conventions.
     static const AttribBinding kDefaultBindings[3];
 
-    Shader()  = default;
-    ~Shader();
+    GLShader()  = default;
+    ~GLShader();
 
-    Shader(const Shader&)            = delete;
-    Shader& operator=(const Shader&) = delete;
+    GLShader(const GLShader&)            = delete;
+    GLShader& operator=(const GLShader&) = delete;
 
-    Shader(Shader&& other) noexcept;
-    Shader& operator=(Shader&& other) noexcept;
+    GLShader(GLShader&& other) noexcept;
+    GLShader& operator=(GLShader&& other) noexcept;
 
     // -------------------------------------------------------------------------
     // Loading
@@ -195,4 +194,4 @@ private:
         m_uniformCache;
 };
 
-} // namespace spt
+} // namespace spt3d

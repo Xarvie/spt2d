@@ -2,7 +2,7 @@
 
 #include "../glad/glad.h"
 
-namespace spt {
+namespace spt3d {
 
 enum class BlendMode {
     None,

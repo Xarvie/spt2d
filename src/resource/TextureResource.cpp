@@ -1,7 +1,7 @@
 #include "TextureResource.h"
 #include <iostream>
 
-namespace spt {
+namespace spt3d {
 
 TextureResource::TextureResource(const std::string& logicAddress, const std::string& physicalPath)
     : m_logicAddress(logicAddress)

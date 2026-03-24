@@ -6,7 +6,7 @@
 #include <cassert>
 #include <type_traits>
 
-namespace spt {
+namespace spt3d {
 
 // =============================================================================
 //  RenderCommand
@@ -361,4 +361,4 @@ struct GameWork {
     }
 };
 
-} // namespace spt
+} // namespace spt3d

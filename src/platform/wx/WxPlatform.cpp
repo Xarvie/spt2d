@@ -6,7 +6,7 @@
 #include <iostream>
 #include <map>
 
-namespace spt {
+namespace spt3d {
 
 static IInputSystem* g_inputSystem = nullptr;
 static INetworkSystem* g_networkSystem = nullptr;
@@ -277,6 +277,6 @@ std::unique_ptr<IPlatformHub> createPlatformWx() {
     return std::make_unique<WxPlatformHub>();
 }
 
-} // namespace spt
+} // namespace spt3d
 
 #endif

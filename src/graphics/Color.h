@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace spt {
+namespace spt3d {
 
 struct Color {
     float r, g, b, a;

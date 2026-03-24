@@ -1,6 +1,6 @@
 #pragma once
 
-namespace spt {
+namespace spt3d {
 
 #if defined(__APPLE__)
 #define SPT_GLSL_VERSION "#version 410 core\n"

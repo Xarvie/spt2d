@@ -22,6 +22,9 @@
 #include <initializer_list>
 #include <utility>
 
+#include "src/core/ThreadModel.h"
+#include "src/core/Signal.h"
+
 // =========================================================================
 //  GLM 数学库
 // =========================================================================
@@ -194,22 +197,6 @@ struct ResHandle {
 //  多线程模式下使用 TripleBuffer<GameWork> 传递帧数据，无锁高效。
 //
 
-enum class FrameRateMode : uint8_t { FixedHz, VSync, Unlocked };
-
-struct ThreadConfig {
-    bool          multithreaded   = false;
-    int           logicHz         = 30;
-    int           renderHz        = 60;
-    FrameRateMode logicFpsMode    = FrameRateMode::FixedHz;
-    FrameRateMode renderFpsMode   = FrameRateMode::VSync;
-    float         maxDeltaTime    = 0.1f;
-    std::string   logicThreadName = "spt.logic";
-    std::string   renderThreadName = "spt.render";
-    
-    static ThreadConfig SingleThread(int hz = 60);
-    static ThreadConfig MultiThread(int logicHz = 30, int renderHz = 60);
-};
-
 void SetThreadConfig(const ThreadConfig& cfg);
 ThreadConfig GetThreadConfig();
 
@@ -254,7 +241,7 @@ enum class Fmt : uint8_t {
     R16F, RG16F, RGBA16F,
     R32F, RG32F, RGBA32F,
     R11G11B10F,
-    Depth16, Depth24, D24S8,
+    Depth16, Depth24, D24S8, D32F,
     ETC2_RGB, ETC2_RGBA, ASTC_4x4, ASTC_8x8,
 };
 
@@ -272,6 +259,10 @@ enum class Wrap   : uint8_t { Repeat, Clamp, Mirror };
 
 struct Texture {
     struct Impl; std::shared_ptr<Impl> p;
+    Texture() = default;
+    ~Texture() = default;
+    Texture(Texture&&) noexcept = default;
+    Texture& operator=(Texture&&) noexcept = default;
     ResState State() const;
     bool Ready() const;
     bool Valid() const;
@@ -296,6 +287,10 @@ void GenMips(Texture t);
 void Update(Texture t, const void* px);
 void UpdateRegion(Texture t, Rect region, const void* px);
 
+namespace detail {
+    Texture CreateTexFromGL(uint32_t glTex, int w, int h, Fmt fmt);
+}
+
 // =========================================================================
 //  RENDER TARGET
 // =========================================================================
@@ -308,6 +303,7 @@ struct RenderTarget {
     int  ColorCount() const;
     Texture GetColor(int index = 0) const;
     Texture GetDepth() const;
+    uint32_t GL() const;
     explicit operator bool() const;
 };
 
@@ -373,6 +369,10 @@ struct ShaderPass {
 
 struct Shader {
     struct Impl; std::shared_ptr<Impl> p;
+    Shader() = default;
+    ~Shader() = default;
+    Shader(Shader&&) noexcept = default;
+    Shader& operator=(Shader&&) noexcept = default;
     ResState State() const;
     bool Ready() const;
     bool Valid() const;
@@ -380,6 +380,12 @@ struct Shader {
     int  PassCount() const;
     int  GetLoc(std::string_view pass, std::string_view uniform) const;
     explicit operator bool() const;
+    
+    bool loadFromSource(std::string_view vertexSrc, std::string_view fragmentSrc);
+    void use() const;
+    int uniformLocation(std::string_view name) const;
+    std::string lastError() const;
+    unsigned int program() const;
 };
 
 Shader CreateShader(std::initializer_list<ShaderPass> passes);
@@ -399,11 +405,14 @@ Shader SkyboxShader();
 
 struct Material {
     struct Impl; std::shared_ptr<Impl> p;
+    Material() = default;
+    ~Material() = default;
+    Material(Material&&) noexcept = default;
+    Material& operator=(Material&&) noexcept = default;
     bool Valid() const;
-    Shader GetShader() const;
+    Shader* GetShader() const;
     explicit operator bool() const;
 
-    // uniform setters — 全部存在 material 内部快照，不碰 GL
     void Set(std::string_view name, int v);
     void Set(std::string_view name, float v);
     void Set(std::string_view name, Vec2 v);
@@ -415,7 +424,6 @@ struct Material {
     void Set(std::string_view name, const float* data, int count);
     void SetTex(std::string_view name, Texture tex, int slot = 0);
 
-    // 语义槽
     void SetAlbedo(Texture tex);
     void SetAlbedoColor(Color c);
     void SetNormalMap(Texture tex);
@@ -426,7 +434,6 @@ struct Material {
     void SetRoughness(float v);
     void SetOcclusion(Texture tex);
 
-    // render state（material 级别的默认值，可被 ShaderPass 的 state 覆盖）
     void SetState(RenderState state);
     void SetBlend(BlendMode mode);
     void SetBlendEq(BlendEq eq);
@@ -434,7 +441,6 @@ struct Material {
     void SetDepthWrite(bool w);
     void SetDepthTest(bool t);
 
-    // 分类标签 — pipeline geometry stage 用来过滤绘制对象
     void SetTag(std::string_view tag);
     std::string_view GetTag() const;
 };
@@ -692,15 +698,7 @@ int      Count(DrawList dl);
 //  用户通常不需要直接操作 GameWork，使用 DrawList 或即时模式 API 即可。
 //
 
-struct GameWork {
-    struct Impl; std::shared_ptr<Impl> p;
-    
-    double   logicTime  = 0.0;   // 累积模拟时间
-    float    deltaTime  = 0.0f;  // 本帧时间步长
-    uint64_t frameIndex = 0;     // 帧计数器
-    
-    void Reset();
-};
+struct GameWork;
 
 // 获取当前帧的 GameWork（用于高级定制）
 GameWork& CurrentWork();
@@ -928,45 +926,6 @@ struct AppConfig {
 //  - 所有方法在主线程顺序执行
 //
 
-struct TouchEvent {
-    enum Type { Begin = 0, Move = 1, End = 2, Cancel = 3 };
-    Type type = Begin;
-    int id = 0;
-    float x = 0.0f;
-    float y = 0.0f;
-};
-
-struct KeyEvent {
-    enum Type { Down = 0, Up = 1 };
-    Type type = Down;
-    int code = 0;
-};
-
-struct MouseEvent {
-    float x = 0.0f;
-    float y = 0.0f;
-    float deltaX = 0.0f;
-    float deltaY = 0.0f;
-    bool leftButton = false;
-    bool rightButton = false;
-};
-
-struct InputFrame {
-    const std::vector<TouchEvent>* touches = nullptr;
-    const std::vector<KeyEvent>* keys = nullptr;
-    const std::vector<MouseEvent>* mice = nullptr;
-};
-
-class IGameLogic {
-public:
-    virtual ~IGameLogic() = default;
-    virtual bool OnInit() { return true; }
-    virtual void OnUpdate(float dt, const InputFrame& input) { (void)dt; (void)input; }
-    virtual void OnRender() {}
-    virtual void OnShutdown() {}
-    virtual bool IsRunning() const { return true; }
-};
-
 // 方式 1：使用 IGameLogic 接口（推荐用于多线程）
 bool Init(const AppConfig& cfg, std::unique_ptr<IGameLogic> game);
 void Run();
@@ -1006,24 +965,6 @@ void  ToggleFullscreen();
 //    conn.Disconnect();  // 手动断开
 //    // 或离开作用域自动断开
 //
-
-template<typename... Args>
-struct ScopedConnection {
-    uint64_t id = 0;
-    void Disconnect();
-    bool Connected() const;
-    ~ScopedConnection() { Disconnect(); }
-};
-
-template<typename... Args>
-struct Signal {
-    uint64_t nextId = 0;
-    std::vector<std::pair<uint64_t, std::function<void(Args...)>>> slots;
-    
-    ScopedConnection<Args...> Connect(std::function<void(Args...)> slot);
-    void Emit(Args... args);
-    void Clear();
-};
 
 // 平台事件信号
 Signal<int, int>& OnResize();

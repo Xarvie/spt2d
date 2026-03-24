@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(spt-2d LANGUAGES C CXX)
+project(spt3d LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -28,6 +28,19 @@ set(SPT3D_SOURCES
     ${SRC_DIR}/core/Color.cpp
     ${SRC_DIR}/core/Geometry.cpp
     ${SRC_DIR}/core/Lifecycle.cpp
+    ${SRC_DIR}/core/Texture.cpp
+    ${SRC_DIR}/core/Shader.cpp
+    ${SRC_DIR}/core/Material.cpp
+    ${SRC_DIR}/core/RenderTarget.cpp
+    ${SRC_DIR}/core/Mesh.cpp
+    ${SRC_DIR}/core/Pipeline.cpp
+    ${SRC_DIR}/core/Camera.cpp
+    ${SRC_DIR}/core/Light.cpp
+    ${SRC_DIR}/core/Model.cpp
+    ${SRC_DIR}/graphics/Shader.cpp
+    ${SRC_DIR}/vfs/VirtualFileSystem.cpp
+    ${SRC_DIR}/vfs/VFS.cpp
+    ${SRC_DIR}/vfs/providers/NativeFileSystem.cpp
 )
 
 if(EMSCRIPTEN)
@@ -38,7 +51,6 @@ if(EMSCRIPTEN)
         target_sources(game PRIVATE
             ${SRC_DIR}/Main.cpp
             ${SRC_DIR}/platform/wx/WxPlatform.cpp
-            ${SRC_DIR}/graphics/Shader.cpp
             ${SRC_DIR}/graphics/Graphics.cpp
             ${SRC_DIR}/graphics/Texture.cpp
             ${SRC_DIR}/graphics/Canvas.cpp
@@ -65,7 +77,6 @@ if(EMSCRIPTEN)
         target_sources(game PRIVATE
             ${SRC_DIR}/Main.cpp
             ${SRC_DIR}/platform/web/WebPlatform.cpp
-            ${SRC_DIR}/graphics/Shader.cpp
             ${SRC_DIR}/graphics/Graphics.cpp
             ${SRC_DIR}/graphics/Texture.cpp
             ${SRC_DIR}/graphics/Canvas.cpp
@@ -91,7 +102,6 @@ elseif(APPLE)
     target_sources(game PRIVATE
         ${SRC_DIR}/Main.cpp
         ${SRC_DIR}/platform/sdl3/Sdl3Platform.cpp
-        ${SRC_DIR}/graphics/Shader.cpp
         ${SRC_DIR}/graphics/Graphics.cpp
         ${SRC_DIR}/graphics/Texture.cpp
         ${SRC_DIR}/graphics/Canvas.cpp
@@ -110,7 +120,6 @@ elseif(UNIX)
     target_sources(game PRIVATE
         ${SRC_DIR}/Main.cpp
         ${SRC_DIR}/platform/sdl3/Sdl3Platform.cpp
-        ${SRC_DIR}/graphics/Shader.cpp
         ${SRC_DIR}/graphics/Graphics.cpp
         ${SRC_DIR}/graphics/Texture.cpp
         ${SRC_DIR}/graphics/Canvas.cpp
@@ -129,7 +138,6 @@ else()
     target_sources(game PRIVATE
         ${SRC_DIR}/Main.cpp
         ${SRC_DIR}/platform/sdl3/Sdl3Platform.cpp
-        ${SRC_DIR}/graphics/Shader.cpp
         ${SRC_DIR}/graphics/Graphics.cpp
         ${SRC_DIR}/graphics/Texture.cpp
         ${SRC_DIR}/graphics/Canvas.cpp

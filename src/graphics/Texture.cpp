@@ -3,7 +3,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "../../libs/stb/stb_image.h"
 
-namespace spt {
+namespace spt3d {
 
 Texture::Texture(Texture&& other) noexcept
     : m_pixelData(std::move(other.m_pixelData))

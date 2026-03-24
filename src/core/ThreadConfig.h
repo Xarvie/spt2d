@@ -4,7 +4,7 @@
 #include <cassert>
 #include <string>
 
-namespace spt {
+namespace spt3d {
 
 // =============================================================================
 //  FrameRateMode
@@ -181,4 +181,4 @@ struct ThreadConfig {
     }
 };
 
-} // namespace spt
+} // namespace spt3d

@@ -4,12 +4,12 @@
 #include <cassert>
 #include <array>
 
-namespace spt {
+namespace spt3d {
 
 // =============================================================================
 //  Default attribute bindings  (matches ShaderSources.h layout)
 // =============================================================================
-const AttribBinding Shader::kDefaultBindings[3] = {
+const AttribBinding GLShader::kDefaultBindings[3] = {
     { 0, "a_position" },
     { 1, "a_color"    },
     { 2, "a_texcoord" },
@@ -19,11 +19,11 @@ const AttribBinding Shader::kDefaultBindings[3] = {
 //  Lifecycle
 // =============================================================================
 
-Shader::~Shader() {
+GLShader::~GLShader() {
     destroy();
 }
 
-Shader::Shader(Shader&& other) noexcept
+GLShader::GLShader(GLShader&& other) noexcept
     : m_program(other.m_program)
     , m_lastError(std::move(other.m_lastError))
     , m_uniformCache(std::move(other.m_uniformCache))
@@ -31,7 +31,7 @@ Shader::Shader(Shader&& other) noexcept
     other.m_program = 0;
 }
 
-Shader& Shader::operator=(Shader&& other) noexcept {
+GLShader& GLShader::operator=(GLShader&& other) noexcept {
     if (this != &other) {
         destroy();
         m_program      = other.m_program;
@@ -42,7 +42,7 @@ Shader& Shader::operator=(Shader&& other) noexcept {
     return *this;
 }
 
-void Shader::destroy() {
+void GLShader::destroy() {
     if (m_program != 0) {
         glDeleteProgram(m_program);
         m_program = 0;
@@ -55,7 +55,7 @@ void Shader::destroy() {
 //  Loading
 // =============================================================================
 
-bool Shader::loadFromSource(std::string_view     vertexSrc,
+bool GLShader::loadFromSource(std::string_view     vertexSrc,
                              std::string_view     fragmentSrc,
                              const AttribBinding* bindings,
                              std::size_t          bindingCount) {
@@ -74,7 +74,7 @@ bool Shader::loadFromSource(std::string_view     vertexSrc,
     return linkStages(stages, 2, bindings, bindingCount);
 }
 
-bool Shader::loadFromSource(std::string_view     vertexSrc,
+bool GLShader::loadFromSource(std::string_view     vertexSrc,
                              std::string_view     geometrySrc,
                              std::string_view     fragmentSrc,
                              const AttribBinding* bindings,
@@ -120,7 +120,7 @@ bool Shader::loadFromSource(std::string_view     vertexSrc,
 //  Internal helpers
 // =============================================================================
 
-GLuint Shader::compileStage(GLenum type, std::string_view source) {
+GLuint GLShader::compileStage(GLenum type, std::string_view source) {
     const GLuint shader = glCreateShader(type);
     if (shader == 0) {
         m_lastError = "[Shader] glCreateShader() returned 0";
@@ -165,7 +165,7 @@ GLuint Shader::compileStage(GLenum type, std::string_view source) {
     return shader;
 }
 
-bool Shader::linkStages(const GLuint*        stages,
+bool GLShader::linkStages(const GLuint*        stages,
                          std::size_t          count,
                          const AttribBinding* bindings,
                          std::size_t          bindingCount) {
@@ -226,8 +226,8 @@ bool Shader::linkStages(const GLuint*        stages,
 //  Usage
 // =============================================================================
 
-void Shader::use() const {
-    assert(m_program != 0 && "Shader::use() called on an invalid program");
+void GLShader::use() const {
+    assert(m_program != 0 && "GLShader::use() called on an invalid program");
     glUseProgram(m_program);
 }
 
@@ -235,7 +235,7 @@ void Shader::use() const {
 //  Uniform location cache
 // =============================================================================
 
-GLint Shader::uniformLocation(std::string_view name) const {
+GLint GLShader::uniformLocation(std::string_view name) const {
     assert(m_program != 0 && "uniformLocation() called on an invalid program");
 
     std::string key(name);
@@ -256,7 +256,7 @@ GLint Shader::uniformLocation(std::string_view name) const {
     return loc;
 }
 
-GLint Shader::attribLocation(std::string_view name) const {
+GLint GLShader::attribLocation(std::string_view name) const {
     assert(m_program != 0 && "attribLocation() called on an invalid program");
     return glGetAttribLocation(m_program, std::string(name).c_str());
 }
@@ -265,66 +265,66 @@ GLint Shader::attribLocation(std::string_view name) const {
 //  Uniform setters
 // =============================================================================
 
-void Shader::setInt(std::string_view name, int value) const {
+void GLShader::setInt(std::string_view name, int value) const {
     const GLint loc = uniformLocation(name);
     if (loc != -1) glUniform1i(loc, value);
 }
 
-void Shader::setUInt(std::string_view name, unsigned int value) const {
+void GLShader::setUInt(std::string_view name, unsigned int value) const {
     const GLint loc = uniformLocation(name);
     if (loc != -1) glUniform1ui(loc, value);
 }
 
-void Shader::setFloat(std::string_view name, float value) const {
+void GLShader::setFloat(std::string_view name, float value) const {
     const GLint loc = uniformLocation(name);
     if (loc != -1) glUniform1f(loc, value);
 }
 
-void Shader::setBool(std::string_view name, bool value) const {
+void GLShader::setBool(std::string_view name, bool value) const {
     const GLint loc = uniformLocation(name);
     if (loc != -1) glUniform1i(loc, value ? 1 : 0);
 }
 
-void Shader::setVec2(std::string_view name, float x, float y) const {
+void GLShader::setVec2(std::string_view name, float x, float y) const {
     const GLint loc = uniformLocation(name);
     if (loc != -1) glUniform2f(loc, x, y);
 }
 
-void Shader::setVec3(std::string_view name, float x, float y, float z) const {
+void GLShader::setVec3(std::string_view name, float x, float y, float z) const {
     const GLint loc = uniformLocation(name);
     if (loc != -1) glUniform3f(loc, x, y, z);
 }
 
-void Shader::setVec4(std::string_view name, float x, float y, float z, float w) const {
+void GLShader::setVec4(std::string_view name, float x, float y, float z, float w) const {
     const GLint loc = uniformLocation(name);
     if (loc != -1) glUniform4f(loc, x, y, z, w);
 }
 
-void Shader::setIVec2(std::string_view name, int x, int y) const {
+void GLShader::setIVec2(std::string_view name, int x, int y) const {
     const GLint loc = uniformLocation(name);
     if (loc != -1) glUniform2i(loc, x, y);
 }
 
-void Shader::setIVec3(std::string_view name, int x, int y, int z) const {
+void GLShader::setIVec3(std::string_view name, int x, int y, int z) const {
     const GLint loc = uniformLocation(name);
     if (loc != -1) glUniform3i(loc, x, y, z);
 }
 
-void Shader::setIVec4(std::string_view name, int x, int y, int z, int w) const {
+void GLShader::setIVec4(std::string_view name, int x, int y, int z, int w) const {
     const GLint loc = uniformLocation(name);
     if (loc != -1) glUniform4i(loc, x, y, z, w);
 }
 
-void Shader::setMat3(std::string_view name, const float* matrix,
+void GLShader::setMat3(std::string_view name, const float* matrix,
                       GLboolean transpose) const {
     const GLint loc = uniformLocation(name);
     if (loc != -1) glUniformMatrix3fv(loc, 1, transpose, matrix);
 }
 
-void Shader::setMat4(std::string_view name, const float* matrix,
+void GLShader::setMat4(std::string_view name, const float* matrix,
                       GLboolean transpose) const {
     const GLint loc = uniformLocation(name);
     if (loc != -1) glUniformMatrix4fv(loc, 1, transpose, matrix);
 }
 
-} // namespace spt
+} // namespace spt3d

@@ -7,7 +7,7 @@
 #include <cassert>
 #include <cstddef>
 
-namespace spt {
+namespace spt3d {
 
 // =============================================================================
 //  ThreadSafeQueue<T>
@@ -215,4 +215,4 @@ private:
     bool                    m_closed{false};
 };
 
-} // namespace spt
+} // namespace spt3d

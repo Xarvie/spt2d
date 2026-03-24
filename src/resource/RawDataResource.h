@@ -3,7 +3,7 @@
 #include "../resource/IResource.h"
 #include <atomic>
 
-namespace spt {
+namespace spt3d {
 
 class RawDataResource : public IResource {
 public:

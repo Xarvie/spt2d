@@ -5,7 +5,7 @@
 #include <cstring>
 #include <cassert>
 
-namespace spt {
+namespace spt3d {
 
 const float Graphics::kIdentityMVP[16] = {
     1.0f, 0.0f, 0.0f, 0.0f,
@@ -60,7 +60,7 @@ void Graphics::shutdown() {
 }
 
 bool Graphics::createGLResources() {
-    m_basicShader = std::make_unique<Shader>();
+    m_basicShader = std::make_unique<GLShader>();
     if (!m_basicShader->loadFromSource(SHADER_VS_BASIC, SHADER_FS_BASIC)) {
         std::cerr << "[Graphics] Shader error:\n"
                   << m_basicShader->lastError() << '\n';
@@ -103,7 +103,7 @@ bool Graphics::createGLResources() {
 }
 
 bool Graphics::createTextureGLResources() {
-    m_textureShader = std::make_unique<Shader>();
+    m_textureShader = std::make_unique<GLShader>();
     if (!m_textureShader->loadFromSource(SHADER_VS_TEXTURE, SHADER_FS_TEXTURE)) {
         std::cerr << "[Graphics] Texture shader error:\n"
                   << m_textureShader->lastError() << '\n';
@@ -416,4 +416,4 @@ void Graphics::execDrawTexture(const void* payload) noexcept {
     glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(cmd.vertexCount));
 }
 
-} // namespace spt
+} // namespace spt3d

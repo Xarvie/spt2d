@@ -12,7 +12,7 @@
 #include <emscripten/emscripten.h>
 #endif
 
-namespace spt {
+namespace spt3d {
 
 static IPlatformHub* g_platform = nullptr;
 static std::unique_ptr<Graphics> g_graphics;
@@ -142,10 +142,10 @@ static void mainLoopFrame(float dt) {
     g_threadModel->onFrameEnd();
 }
 
-} // namespace spt
+} // namespace spt3d
 
 int main(int argc, char* argv[]) {
-    using namespace spt;
+    using namespace spt3d;
 
 #ifdef __WXGAME__
     auto platform = createPlatformWx();

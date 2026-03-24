@@ -2,6 +2,7 @@
 #include "ThreadModel.h"
 #include "DoubleBuffer.h"
 #include "../platform/Platform.h"
+#include "../vfs/VirtualFileSystem.h"
 
 #include <chrono>
 #include <iostream>
@@ -16,10 +17,10 @@ namespace {
 }
 
 static struct {
-    spt::ThreadConfig            threadConfig;
-    std::unique_ptr<spt::ThreadModel> threadModel;
-    std::unique_ptr<spt::IPlatformHub> platform;
-    spt::IPlatformHub* platformPtr = nullptr;
+    spt3d::ThreadConfig            threadConfig;
+    std::unique_ptr<spt3d::ThreadModel> threadModel;
+    std::unique_ptr<spt3d::IPlatformHub> platform;
+    spt3d::IPlatformHub* platformPtr = nullptr;
     
     TimePoint startTime;
     TimePoint lastFrameTime;
@@ -33,32 +34,12 @@ static struct {
     bool shouldQuit = false;
 } g_state;
 
-ThreadConfig ThreadConfig::SingleThread(int hz) {
-    ThreadConfig c;
-    c.multithreaded = false;
-    c.logicHz = hz;
-    c.renderHz = hz;
-    c.logicFpsMode = FrameRateMode::FixedHz;
-    c.renderFpsMode = FrameRateMode::FixedHz;
-    return c;
-}
-
-ThreadConfig ThreadConfig::MultiThread(int logicHz, int renderHz) {
-    ThreadConfig c;
-    c.multithreaded = true;
-    c.logicHz = logicHz;
-    c.renderHz = renderHz;
-    c.logicFpsMode = FrameRateMode::FixedHz;
-    c.renderFpsMode = FrameRateMode::FixedHz;
-    return c;
-}
-
 void SetThreadConfig(const ThreadConfig& cfg) {
-    g_state.threadConfig = spt::ThreadConfig();
+    g_state.threadConfig = spt3d::ThreadConfig();
     g_state.threadConfig.multithreaded = cfg.multithreaded;
     g_state.threadConfig.logicHz = cfg.logicHz;
     g_state.threadConfig.renderHz = cfg.renderHz;
-    g_state.threadConfig.maxDeltaTimeSeconds = cfg.maxDeltaTime;
+    g_state.threadConfig.maxDeltaTimeSeconds = cfg.maxDeltaTimeSeconds;
     g_state.threadConfig.logicThreadName = cfg.logicThreadName;
     g_state.threadConfig.renderThreadName = cfg.renderThreadName;
 }
@@ -68,82 +49,40 @@ ThreadConfig GetThreadConfig() {
     cfg.multithreaded = g_state.threadConfig.multithreaded;
     cfg.logicHz = g_state.threadConfig.logicHz;
     cfg.renderHz = g_state.threadConfig.renderHz;
-    cfg.maxDeltaTime = g_state.threadConfig.maxDeltaTimeSeconds;
+    cfg.maxDeltaTimeSeconds = g_state.threadConfig.maxDeltaTimeSeconds;
     cfg.logicThreadName = g_state.threadConfig.logicThreadName;
     cfg.renderThreadName = g_state.threadConfig.renderThreadName;
     return cfg;
 }
 
-class GameLogicAdapter : public spt::IGameLogic {
+class GameLogicAdapter : public spt3d::IGameLogic {
 public:
     std::unique_ptr<spt3d::IGameLogic> userLogic;
     
     bool onInit() override {
-        return userLogic ? userLogic->OnInit() : true;
+        return userLogic ? userLogic->onInit() : true;
     }
     
-    void onUpdate(float dt, const spt::InputFrame& input) override {
+    void onUpdate(float dt, const spt3d::InputFrame& input) override {
         if (userLogic) {
-            spt3d::InputFrame adapted;
-            static std::vector<spt3d::TouchEvent> touches;
-            static std::vector<spt3d::KeyEvent> keys;
-            static std::vector<spt3d::MouseEvent> mice;
-            
-            if (input.touches) {
-                touches.clear();
-                for (const auto& t : *input.touches) {
-                    spt3d::TouchEvent te;
-                    te.type = static_cast<spt3d::TouchEvent::Type>(t.type);
-                    te.id = t.id;
-                    te.x = t.x;
-                    te.y = t.y;
-                    touches.push_back(te);
-                }
-                adapted.touches = &touches;
-            }
-            if (input.keys) {
-                keys.clear();
-                for (const auto& k : *input.keys) {
-                    spt3d::KeyEvent ke;
-                    ke.type = static_cast<spt3d::KeyEvent::Type>(k.type);
-                    ke.code = 0;
-                    keys.push_back(ke);
-                }
-                adapted.keys = &keys;
-            }
-            if (input.mice) {
-                mice.clear();
-                for (const auto& m : *input.mice) {
-                    spt3d::MouseEvent me;
-                    me.x = m.x;
-                    me.y = m.y;
-                    me.deltaX = m.deltaX;
-                    me.deltaY = m.deltaY;
-                    me.leftButton = (m.button == 1);
-                    me.rightButton = (m.button == 2);
-                    mice.push_back(me);
-                }
-                adapted.mice = &mice;
-            }
-            userLogic->OnUpdate(dt, adapted);
+            userLogic->onUpdate(dt, input);
         }
     }
     
-    void onRender(spt::GameWork& work) override {
-        (void)work;
+    void onRender(spt3d::GameWork& work) override {
         if (userLogic) {
-            userLogic->OnRender();
+            userLogic->onRender(work);
         }
     }
     
     void onShutdown() override {
         if (userLogic) {
-            userLogic->OnShutdown();
+            userLogic->onShutdown();
         }
     }
     
     bool isRunning() const override {
-        return userLogic ? userLogic->IsRunning() : false;
+        return userLogic ? userLogic->isRunning() : false;
     }
 };
 
@@ -156,18 +95,18 @@ bool Init(const AppConfig& cfg, std::unique_ptr<IGameLogic> game) {
     g_state.startTime = Clock::now();
     g_state.lastFrameTime = g_state.startTime;
     
-    spt::PlatformConfig platCfg;
+    spt3d::PlatformConfig platCfg;
     platCfg.width = cfg.width;
     platCfg.height = cfg.height;
     platCfg.title = std::string(cfg.title);
     platCfg.targetFps = 60;
     
 #if defined(__WXGAME__)
-    g_state.platform = spt::createPlatformWx();
+    g_state.platform = spt3d::createPlatformWx();
 #elif defined(EMSCRIPTEN)
-    g_state.platform = spt::createPlatformWeb();
+    g_state.platform = spt3d::createPlatformWeb();
 #else
-    g_state.platform = spt::createPlatformSdl3();
+    g_state.platform = spt3d::createPlatformSdl3();
 #endif
     
     if (!g_state.platform || !g_state.platform->initialize(platCfg)) {
@@ -179,7 +118,7 @@ bool Init(const AppConfig& cfg, std::unique_ptr<IGameLogic> game) {
     auto adapter = std::make_unique<GameLogicAdapter>();
     adapter->userLogic = std::move(game);
     
-    g_state.threadModel = spt::ThreadModel::create(g_state.threadConfig);
+    g_state.threadModel = spt3d::ThreadModel::create(g_state.threadConfig);
     if (!g_state.threadModel->initialize(g_state.threadConfig, std::move(adapter))) {
         std::cerr << "[spt3d] ThreadModel initialization failed\n";
         return false;
@@ -205,7 +144,7 @@ void Run() {
     while (g_state.threadModel->isRunning() && !g_state.shouldQuit) {
         g_state.threadModel->onFrameBegin();
         
-        const spt::GameWork* work = g_state.threadModel->getRenderWork();
+        const spt3d::GameWork* work = g_state.threadModel->getRenderWork();
         if (work) {
             if (g_state.platformPtr) {
                 auto window = g_state.platformPtr->getWindowSystem();
@@ -295,6 +234,7 @@ void Shutdown() {
 }
 
 void BeginFrame() {
+    spt3d::VirtualFileSystem::Instance().processCompleted();
     g_state.lastFrameTime = Clock::now();
 }
 
@@ -422,44 +362,5 @@ Signal<std::string_view>& OnDropFile() {
     static Signal<std::string_view> sig;
     return sig;
 }
-
-template<typename... Args>
-void ScopedConnection<Args...>::Disconnect() {
-    if (id != 0) {
-        id = 0;
-    }
-}
-
-template<typename... Args>
-bool ScopedConnection<Args...>::Connected() const {
-    return id != 0;
-}
-
-template class ScopedConnection<int, int>;
-template class ScopedConnection<>;
-template class ScopedConnection<std::string_view>;
-
-template<typename... Args>
-ScopedConnection<Args...> Signal<Args...>::Connect(std::function<void(Args...)> slot) {
-    uint64_t connId = ++nextId;
-    slots.push_back({connId, std::move(slot)});
-    return ScopedConnection<Args...>{connId};
-}
-
-template<typename... Args>
-void Signal<Args...>::Emit(Args... args) {
-    for (auto& s : slots) {
-        if (s.second) s.second(args...);
-    }
-}
-
-template<typename... Args>
-void Signal<Args...>::Clear() {
-    slots.clear();
-}
-
-template class Signal<int, int>;
-template class Signal<>;
-template class Signal<std::string_view>;
 
 }
