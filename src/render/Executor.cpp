@@ -70,11 +70,6 @@ void Executor::execute(const GameWork& work, GPUDevice& gpu) {
     }
 
     const std::size_t cmdCount = work.renderCommands.size();
-    static int frameCounter = 0;
-    if (frameCounter++ % 60 == 0) {
-        std::cout << "[Executor] Frame " << frameCounter << " cmdCount=" << cmdCount << std::endl;
-    }
-    
     if (cmdCount == 0) {
         g_gpuDevice = nullptr;
         g_frameData = nullptr;

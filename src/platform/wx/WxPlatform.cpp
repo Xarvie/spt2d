@@ -3,6 +3,8 @@
 #include "../Platform.h"
 #include "../../core/CallbackManager.h"
 #include <emscripten/emscripten.h>
+#include <emscripten/html5.h>
+#include <GLES3/gl3.h>
 #include <iostream>
 #include <map>
 
@@ -271,10 +273,11 @@ public:
         emscripten_set_main_loop_arg([](void* arg) {
             auto* self = static_cast<WxPlatformHub*>(arg);
             double now = emscripten_get_now() / 1000.0;
-            float dt = std::min(static_cast<float>(now - self->m_lastTime), 0.1f);
-            self->m_lastTime = now;
+            float dt = std::min(static_cast<float>(now - self->m_lastTime), 1.1f);
             self->m_networkSystem->update(dt);
             if (self->m_updateFunc) self->m_updateFunc(dt);
+            glFlush();
+            emscripten_webgl_commit_frame();
         }, this, 0, 1);
     }
 

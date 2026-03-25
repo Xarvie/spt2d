@@ -39,6 +39,12 @@ function Build-Wx {
         src/vfs/providers/NativeFileSystem.cpp `
         src/resource/ResourceManager.cpp `
         src/resource/RawDataResource.cpp `
+        src/resource/MeshData.cpp `
+        src/resource/DrawList.cpp `
+        src/Types.cpp `
+        src/gpu/GPUDevice.cpp `
+        src/render/Executor.cpp `
+        src/render/Pipeline.cpp `
         build-wx/glad.o `
         -D__WXGAME__ -D__EMSCRIPTEN__ `
         -I. -Isrc -Isrc/core -Isrc/platform -Isrc/vfs -Isrc/resource -Isrc/gpu -Isrc/render -Isrc/glad -Ilibs/glm `
@@ -91,6 +97,12 @@ function Build-Web {
         src/vfs/providers/NativeFileSystem.cpp `
         src/resource/ResourceManager.cpp `
         src/resource/RawDataResource.cpp `
+        src/resource/MeshData.cpp `
+        src/resource/DrawList.cpp `
+        src/Types.cpp `
+        src/gpu/GPUDevice.cpp `
+        src/render/Executor.cpp `
+        src/render/Pipeline.cpp `
         build-web/glad.o `
         -D__EMSCRIPTEN__ `
         -I. -Isrc -Isrc/core -Isrc/platform -Isrc/vfs -Isrc/resource -Isrc/gpu -Isrc/render -Isrc/glad -Ilibs/glm `
