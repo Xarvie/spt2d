@@ -3,11 +3,17 @@
 #include "core/RenderCommand.h"
 #include "vfs/VirtualFileSystem.h"
 #include "vfs/providers/NativeFileSystem.h"
+
+#ifdef __WXGAME__
+#include "vfs/providers/WxFileSystem.h"
+#endif
+
 #include "resource/ResourceManager.h"
 #include "resource/MeshData.h"
 #include "resource/DrawList.h"
 #include "gpu/GPUDevice.h"
-#include "gpu/BuiltinShaders.h"
+#include "gpu/ShaderLibrary.h"
+#include "gpu/TextureLoader.h"
 #include "render/Executor.h"
 
 #include <iostream>
@@ -50,11 +56,6 @@ public:
         m_windowWidth = windowInfo.screenWidth;
         m_windowHeight = windowInfo.screenHeight;
 
-#ifndef __EMSCRIPTEN__
-        VirtualFileSystem::Instance().mount("file", 
-            std::make_unique<NativeFileSystemProvider>("./"));
-#endif
-
         if (!initGPU()) {
             std::cerr << "[Game] GPU initialization failed" << std::endl;
             return false;
@@ -83,16 +84,18 @@ public:
         
         g_resourceManager->update();
         VirtualFileSystem::Instance().processCompleted();
+        TextureLoader::Instance().update();
     }
 
     void onRender(GameWork& work) override {
         work.reset();
         work.setScreenSize(m_windowWidth, m_windowHeight);
+        work.setViewport(0, 0, m_windowWidth, m_windowHeight);
 
-        m_camera.position = Vec3(0.0f, 2.0f, 5.0f);
+        m_camera.position = Vec3(0.0f, 2.0f, 2.0f);
         m_camera.target = Vec3(0.0f, 0.0f, 0.0f);
         m_camera.up = Vec3(0.0f, 1.0f, 0.0f);
-        m_camera.fov = 60.0f;
+        m_camera.fov = 90.0f;
         m_camera.near_clip = 0.1f;
         m_camera.far_clip = 100.0f;
         m_camera.ortho = false;
@@ -108,8 +111,9 @@ public:
 
         MaterialSnapshot mat;
         mat.shader = m_shader;
-        mat.setVec4("u_color", Vec4(0.8f, 0.2f, 0.2f, 1.0f));
-        mat.setTexture("u_texture", g_gpu->whiteTex(), 0);
+        mat.setVec4("u_color", Vec4(1.0f, 1.0f, 1.0f, 1.0f));
+        TexHandle tex = m_texture.value ? m_texture : g_gpu->whiteTex();
+        mat.setTexture("u_texture", tex, 0);
 
         m_drawList.clear();
         m_drawList.push(m_cubeMesh, mat, model);
@@ -141,6 +145,9 @@ private:
         std::cout << "[Game] GPU: " << g_gpu->caps().renderer << std::endl;
         std::cout << "[Game] Max Texture Size: " << g_gpu->caps().maxTexSize << std::endl;
 
+        ShaderLibrary::Instance().initialize(g_gpu.get());
+        TextureLoader::Instance().initialize(g_gpu.get());
+
         MeshData cubeData = GenCubeData(1.0f, 1.0f, 1.0f);
         m_cubeMesh = g_gpu->createMesh(cubeData);
         if (m_cubeMesh.value == 0) {
@@ -148,18 +155,26 @@ private:
             return false;
         }
 
-        ShaderDesc shaderDesc;
-        ShaderPassDesc pass;
-        pass.name = "FORWARD";
-        pass.vs = shaders::kUnlitVS;
-        pass.fs = shaders::kUnlitFS;
-        shaderDesc.passes.push_back(pass);
-
-        m_shader = g_gpu->createShader(shaderDesc);
+        m_shader = ShaderLibrary::Instance().unlit();
         if (m_shader.value == 0) {
-            std::cerr << "[Game] Failed to create shader" << std::endl;
+            std::cerr << "[Game] Failed to get unlit shader" << std::endl;
             return false;
         }
+
+        TextureLoader::Instance().loadAsync(
+#ifdef __WXGAME__
+            "package://resources/textures/container2.png",
+#else
+            "file://resources/textures/container2.png",
+#endif
+            [this](const TextureLoadResult& result) {
+                if (result.success) {
+                    m_texture = result.handle;
+                    std::cout << "[Game] Texture loaded: " << result.path << std::endl;
+                } else {
+                    std::cerr << "[Game] Failed to load texture: " << result.error << std::endl;
+                }
+            }, true);
 
         std::cout << "[Game] GPU resources created" << std::endl;
         return true;
@@ -173,6 +188,7 @@ private:
 
     MeshHandle m_cubeMesh;
     ShaderHandle m_shader;
+    TexHandle m_texture;
     Camera3D m_camera;
     DrawList m_drawList;
 };
@@ -277,6 +293,8 @@ int main(int argc, char* argv[]) {
 #else
     g_platform->runMainLoop(mainLoopFrame);
     g_threadModel->shutdown();
+    TextureLoader::Instance().shutdown();
+    ShaderLibrary::Instance().shutdown();
     g_gpu->shutdown();
     g_platform->shutdown();
 #endif

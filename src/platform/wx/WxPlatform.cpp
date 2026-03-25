@@ -2,6 +2,8 @@
 
 #include "../Platform.h"
 #include "../../core/CallbackManager.h"
+#include "../../vfs/VirtualFileSystem.h"
+#include "../../vfs/providers/WxFileSystem.h"
 #include <emscripten/emscripten.h>
 #include <emscripten/html5.h>
 #include <GLES3/gl3.h>
@@ -263,9 +265,26 @@ public:
         if (!m_storageSystem->initialize()) return false;
         g_windowSystem = m_windowSystem.get();
         g_platformHub = this;
+
+        mountFileSystems();
+
         std::cout << "[WxPlatformHub] Initialized" << std::endl;
         return true;
     }
+
+private:
+    void mountFileSystems() {
+        auto& vfs = VirtualFileSystem::Instance();
+        vfs.mount(WxFileSystemProvider::SchemeForType(WxFileSystemProvider::RootType::Package),
+                  std::make_unique<WxFileSystemProvider>(WxFileSystemProvider::RootType::Package));
+        vfs.mount(WxFileSystemProvider::SchemeForType(WxFileSystemProvider::RootType::UserData),
+                  std::make_unique<WxFileSystemProvider>(WxFileSystemProvider::RootType::UserData));
+        vfs.mount(WxFileSystemProvider::SchemeForType(WxFileSystemProvider::RootType::Cache),
+                  std::make_unique<WxFileSystemProvider>(WxFileSystemProvider::RootType::Cache));
+        std::cout << "[WxPlatformHub] File systems mounted: package://, userdata://, cache://" << std::endl;
+    }
+
+public:
 
     void runMainLoop(std::function<void(float)> updateFunc) override {
         m_updateFunc = std::move(updateFunc);

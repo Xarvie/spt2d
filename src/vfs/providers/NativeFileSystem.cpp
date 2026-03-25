@@ -1,6 +1,7 @@
 #include "NativeFileSystem.h"
 #include <fstream>
 #include <filesystem>
+#include <iostream>
 
 namespace spt3d {
 
@@ -47,6 +48,8 @@ uint64_t NativeFileSystemProvider::read(const std::string& path,
     uint64_t id = ++m_nextId;
     std::string fullPath = resolvePath(path);
     
+    std::cout << "[NativeFS] read: path=" << path << ", fullPath=" << fullPath << ", id=" << id << std::endl;
+    
     m_tasks.push([id, fullPath, &q, cb, this]() {
         {
             std::lock_guard<std::mutex> lock(m_mutex);
@@ -64,6 +67,7 @@ uint64_t NativeFileSystemProvider::read(const std::string& path,
         if (!file.is_open()) {
             result.success = false;
             result.error = "Failed to open file: " + fullPath;
+            std::cerr << "[NativeFS] ERROR: " << result.error << std::endl;
             q.push(std::move(result));
             return;
         }
@@ -74,9 +78,11 @@ uint64_t NativeFileSystemProvider::read(const std::string& path,
         result.data.resize(size);
         if (file.read(reinterpret_cast<char*>(result.data.data()), size)) {
             result.success = true;
+            std::cout << "[NativeFS] read SUCCESS: " << fullPath << ", size=" << size << std::endl;
         } else {
             result.success = false;
             result.error = "Failed to read file: " + fullPath;
+            std::cerr << "[NativeFS] ERROR: " << result.error << std::endl;
         }
         
         q.push(std::move(result));

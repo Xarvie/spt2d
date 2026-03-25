@@ -36,13 +36,17 @@ function Build-Wx {
         src/platform/wx/WxApi.cpp `
         src/core/ThreadModel.cpp `
         src/vfs/VirtualFileSystem.cpp `
+        src/vfs/VFS.cpp `
         src/vfs/providers/NativeFileSystem.cpp `
+        src/vfs/providers/WxFileSystem.cpp `
         src/resource/ResourceManager.cpp `
         src/resource/RawDataResource.cpp `
         src/resource/MeshData.cpp `
         src/resource/DrawList.cpp `
         src/Types.cpp `
         src/gpu/GPUDevice.cpp `
+        src/gpu/ShaderLibrary.cpp `
+        src/gpu/TextureLoader.cpp `
         src/render/Executor.cpp `
         src/render/Pipeline.cpp `
         build-wx/glad.o `
@@ -101,6 +105,8 @@ function Build-Web {
         src/resource/DrawList.cpp `
         src/Types.cpp `
         src/gpu/GPUDevice.cpp `
+        src/gpu/ShaderLibrary.cpp `
+        src/gpu/TextureLoader.cpp `
         src/render/Executor.cpp `
         src/render/Pipeline.cpp `
         build-web/glad.o `

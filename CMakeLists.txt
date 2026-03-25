@@ -31,11 +31,14 @@ set(SPT3D_SOURCES
     ${SRC_DIR}/platform/Platform.cpp
     ${SRC_DIR}/vfs/VirtualFileSystem.cpp
     ${SRC_DIR}/vfs/providers/NativeFileSystem.cpp
+    ${SRC_DIR}/vfs/providers/WxFileSystem.cpp
     ${SRC_DIR}/resource/ResourceManager.cpp
     ${SRC_DIR}/resource/RawDataResource.cpp
     ${SRC_DIR}/resource/MeshData.cpp
     ${SRC_DIR}/resource/DrawList.cpp
     ${SRC_DIR}/gpu/GPUDevice.cpp
+    ${SRC_DIR}/gpu/ShaderLibrary.cpp
+    ${SRC_DIR}/gpu/TextureLoader.cpp
     ${SRC_DIR}/render/Executor.cpp
     ${SRC_DIR}/render/Pipeline.cpp
     ${SRC_DIR}/Types.cpp
@@ -58,7 +61,7 @@ if(EMSCRIPTEN)
 
         target_link_options(game PRIVATE
             -sWASM=1 -sMODULARIZE=1 -sEXPORT_NAME=GameModule
-            "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_WxBridge_OnTouch','_WxBridge_OnKey','_WxBridge_OnMouse','_WxBridge_OnResize','_WxBridge_OnSafeAreaChange','_WxBridge_OnHttpResponse','_WxBridge_OnAppShow','_WxBridge_OnAppHide','_WxBridge_OnError','_WxBridge_OnMemoryWarning','_WxApi_OnUserInfo','_WxApi_OnLogin','_WxApi_OnCheckSession','_WxApi_OnReadFile','_WxApi_OnWriteFile','_WxApi_OnModal','_WxApi_OnClipboard']"
+            "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_WxBridge_OnTouch','_WxBridge_OnKey','_WxBridge_OnMouse','_WxBridge_OnResize','_WxBridge_OnSafeAreaChange','_WxBridge_OnHttpResponse','_WxBridge_OnAppShow','_WxBridge_OnAppHide','_WxBridge_OnError','_WxBridge_OnMemoryWarning','_WxApi_OnUserInfo','_WxApi_OnLogin','_WxApi_OnCheckSession','_WxApi_OnReadFile','_WxApi_OnWriteFile','_WxApi_OnModal','_WxApi_OnClipboard','_WxVfs_OnReadComplete','_WxVfs_OnWriteComplete']"
             "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','stringToUTF8','UTF8ToString','lengthBytesUTF8','getValue','setValue','allocateUTF8','GL']"
             -sENVIRONMENT=web -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=16777216
             -sUSE_WEBGL2=1 -sFULL_ES3=1

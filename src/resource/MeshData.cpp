@@ -260,15 +260,15 @@ MeshData GenCubeData(float w, float h, float d) {
         float u0 = 0, u1 = 1, v0 = 0, v1 = 1;
 
         Vec3 p[4];
-        Vec2 uv[4] = {{u0,v0},{u1,v0},{u1,v1},{u0,v1}};
+        Vec2 uv[4] = {{u0,v1},{u1,v1},{u1,v0},{u0,v0}};
 
         switch (f) {
-            case 0: p[0]={x0,y0,z1}; p[1]={x1,y0,z1}; p[2]={x1,y1,z1}; p[3]={x0,y1,z1}; break;
-            case 1: p[0]={x1,y0,z0}; p[1]={x0,y0,z0}; p[2]={x0,y1,z0}; p[3]={x1,y1,z0}; break;
-            case 2: p[0]={x0,y1,z1}; p[1]={x1,y1,z1}; p[2]={x1,y1,z0}; p[3]={x0,y1,z0}; break;
-            case 3: p[0]={x0,y0,z0}; p[1]={x1,y0,z0}; p[2]={x1,y0,z1}; p[3]={x0,y0,z1}; break;
-            case 4: p[0]={x1,y0,z1}; p[1]={x1,y0,z0}; p[2]={x1,y1,z0}; p[3]={x1,y1,z1}; break;
-            case 5: p[0]={x0,y0,z0}; p[1]={x0,y0,z1}; p[2]={x0,y1,z1}; p[3]={x0,y1,z0}; break;
+            case 0: p[0]={x0,y1,z1}; p[1]={x1,y1,z1}; p[2]={x1,y0,z1}; p[3]={x0,y0,z1}; break;
+            case 1: p[0]={x0,y1,z0}; p[1]={x0,y0,z0}; p[2]={x1,y0,z0}; p[3]={x1,y1,z0}; break;
+            case 2: p[0]={x0,y1,z0}; p[1]={x1,y1,z0}; p[2]={x1,y1,z1}; p[3]={x0,y1,z1}; break;
+            case 3: p[0]={x0,y0,z1}; p[1]={x1,y0,z1}; p[2]={x1,y0,z0}; p[3]={x0,y0,z0}; break;
+            case 4: p[0]={x1,y1,z1}; p[1]={x1,y1,z0}; p[2]={x1,y0,z0}; p[3]={x1,y0,z1}; break;
+            case 5: p[0]={x0,y1,z1}; p[1]={x0,y0,z1}; p[2]={x0,y0,z0}; p[3]={x0,y1,z0}; break;
         }
 
         for (int i = 0; i < 4; ++i) {

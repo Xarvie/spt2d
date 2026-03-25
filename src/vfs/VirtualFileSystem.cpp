@@ -1,5 +1,6 @@
 #include "VirtualFileSystem.h"
 #include <algorithm>
+#include <iostream>
 
 namespace spt3d {
 
@@ -18,8 +19,11 @@ uint64_t VirtualFileSystem::read(const std::string& path,
     std::string scheme;
     std::string realPath = parsePath(path, scheme);
     
+    std::cout << "[VFS] read: path=" << path << ", scheme=" << scheme << ", realPath=" << realPath << std::endl;
+    
     auto* provider = getProvider(path);
     if (!provider) {
+        std::cerr << "[VFS] ERROR: No provider for scheme: " << scheme << std::endl;
         if (cb) {
             FsResult result;
             result.id = ++m_nextId;

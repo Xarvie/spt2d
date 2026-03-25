@@ -2,6 +2,8 @@
 
 #include "../Platform.h"
 #include "../../core/CallbackManager.h"
+#include "../../vfs/VirtualFileSystem.h"
+#include "../../vfs/providers/NativeFileSystem.h"
 #include "../../glad/glad.h"
 #include <SDL3/SDL.h>
 #include <chrono>
@@ -355,6 +357,10 @@ public:
         if (!m_inputSystem->initialize()) return false;
         if (!m_networkSystem->initialize()) return false;
         if (!m_storageSystem->initialize()) return false;
+
+        auto& vfs = VirtualFileSystem::Instance();
+        vfs.mount("file", std::make_unique<NativeFileSystemProvider>("./"));
+        std::cout << "[Sdl3Hub] File system mounted: file://" << std::endl;
 
         m_targetFps = config.targetFps;
         std::cout << "[Sdl3Hub] Initialized successfully" << std::endl;
