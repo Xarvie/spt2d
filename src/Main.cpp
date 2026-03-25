@@ -50,7 +50,7 @@ public:
         m_windowWidth = windowInfo.screenWidth;
         m_windowHeight = windowInfo.screenHeight;
 
-#ifndef __WXGAME__
+#ifndef __EMSCRIPTEN__
         VirtualFileSystem::Instance().mount("file", 
             std::make_unique<NativeFileSystemProvider>("./"));
 #endif

@@ -3,6 +3,7 @@
 #include "../Platform.h"
 #include <emscripten/emscripten.h>
 #include <emscripten/html5.h>
+#include <GLES3/gl3.h>
 #include <iostream>
 
 namespace spt3d {
@@ -231,6 +232,8 @@ public:
             self->m_windowSystem->updateSize();
 
             if (self->m_updateFunc) self->m_updateFunc(dt);
+            glFlush();
+            emscripten_webgl_commit_frame();
         }, this, 0, 1);
     }
 
