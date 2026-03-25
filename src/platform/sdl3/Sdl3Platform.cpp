@@ -14,6 +14,7 @@
 #include <map>
 
 namespace spt3d {
+namespace detail {
 
 // ============================================================================
 // SDL3 Window System
@@ -249,7 +250,7 @@ public:
 
     void sendHttpRequest(const HttpRequest& request, std::function<void(const HttpResponse&)> callback) override {
         auto handle = m_callbackManager.add(std::move(callback), nullptr, 15.0f);
-        int id = static_cast<int>(handle.id());
+        int id = static_cast<int>(handle.getId());
         {
             std::lock_guard<std::mutex> lock(m_taskMutex);
             m_taskQueue.push({id, request});
@@ -416,10 +417,11 @@ private:
     std::unique_ptr<IStorageSystem> m_storageSystem;
 };
 
-std::unique_ptr<IPlatformHub> createPlatformSdl3() {
+std::unique_ptr<IPlatformHub> createPlatform_Sdl3() {
     return std::make_unique<Sdl3PlatformHub>();
 }
 
+} // namespace detail
 } // namespace spt3d
 
 #endif

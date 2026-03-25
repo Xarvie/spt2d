@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ResHandle.h"
+#include "../Types.h"
 #include <atomic>
 #include <string>
 #include <functional>

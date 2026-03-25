@@ -6,6 +6,7 @@
 #include <iostream>
 
 namespace spt3d {
+namespace detail {
 
 static IInputSystem* g_inputSystem = nullptr;
 
@@ -128,7 +129,7 @@ public:
         return info;
     }
 
-    void updateSize() override {
+    void updateSize() {
         int newW, newH;
         emscripten_get_canvas_element_size("#canvas", &newW, &newH);
 
@@ -180,9 +181,17 @@ public:
     bool initialize() override { return true; }
     void shutdown() override {}
     void sendHttpRequest(const HttpRequest&, std::function<void(const HttpResponse&)> cb) override {
-        if (cb) cb({ false, 501, "", "Use fetch() in JavaScript" });
+        if (cb) {
+            HttpResponse resp;
+            resp.success = false;
+            resp.statusCode = 501;
+            resp.body = "";
+            resp.errMsg = "Use fetch() in JavaScript";
+            cb(resp);
+        }
     }
     std::string getNetworkType() const override { return "unknown"; }
+    void update(float) override {}
 };
 
 class WebStorageSystem : public IStorageSystem {
@@ -237,16 +246,17 @@ public:
 private:
     double m_lastTime = 0.0;
     std::function<void(float)> m_updateFunc;
-    std::unique_ptr<IWindowSystem> m_windowSystem;
+    std::unique_ptr<WebWindowSystem> m_windowSystem;
     std::unique_ptr<IInputSystem> m_inputSystem;
     std::unique_ptr<INetworkSystem> m_networkSystem;
     std::unique_ptr<IStorageSystem> m_storageSystem;
 };
 
-std::unique_ptr<IPlatformHub> createPlatformWeb() {
+std::unique_ptr<IPlatformHub> createPlatform_Web() {
     return std::make_unique<WebPlatformHub>();
 }
 
+} // namespace detail
 } // namespace spt3d
 
 #endif

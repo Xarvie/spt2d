@@ -16,14 +16,6 @@ enum class ResType : uint8_t {
     MaxTypes = 7
 };
 
-enum class ResState : uint8_t {
-    Unloaded = 0,
-    Loading  = 1,
-    Loaded   = 2,
-    Ready    = 3,
-    Failed   = 4
-};
-
 enum ResTag : uint8_t {
     ResTag_None      = 0,
     ResTag_Permanent = 1,
@@ -35,7 +27,6 @@ enum ResTag : uint8_t {
 };
 
 const char* ResTypeToString(ResType type);
-const char* ResStateToString(ResState state);
 
 struct ResHandle {
     uint32_t value;

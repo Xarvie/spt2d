@@ -7,31 +7,49 @@
 #include <map>
 
 namespace spt3d {
+namespace detail {
 
 static IInputSystem* g_inputSystem = nullptr;
 static INetworkSystem* g_networkSystem = nullptr;
 static IWindowSystem* g_windowSystem = nullptr;
+static IPlatformHub* g_platformHub = nullptr;
 static CallbackManager<HttpResponse>* g_httpCallbackManager = nullptr;
 
 extern "C" {
 
 EMSCRIPTEN_KEEPALIVE void WxBridge_OnTouch(int type, int id, float x, float y, float ts) {
     if (g_inputSystem) {
-        TouchEvent te{ static_cast<TouchEvent::Type>(type), id, x, y, ts };
+        TouchEvent te;
+        te.type = static_cast<TouchEvent::Type>(type);
+        te.id = id;
+        te.x = x;
+        te.y = y;
+        te.timestamp = ts;
         g_inputSystem->onTouch.emit(te);
     }
 }
 
 EMSCRIPTEN_KEEPALIVE void WxBridge_OnKey(int type, const char* key, const char* code, float ts) {
     if (g_inputSystem) {
-        KeyEvent ke{ static_cast<KeyEvent::Type>(type), key ? key : "", code ? code : "", ts };
+        KeyEvent ke;
+        ke.type = static_cast<KeyEvent::Type>(type);
+        ke.key = key ? key : "";
+        ke.code = code ? code : "";
+        ke.timestamp = ts;
         g_inputSystem->onKey.emit(ke);
     }
 }
 
 EMSCRIPTEN_KEEPALIVE void WxBridge_OnMouse(int type, float x, float y, int btn, float dx, float dy, float ts) {
     if (g_inputSystem) {
-        MouseEvent me{ static_cast<MouseEvent::Type>(type), x, y, btn, dx, dy, ts };
+        MouseEvent me;
+        me.type = static_cast<MouseEvent::Type>(type);
+        me.x = x;
+        me.y = y;
+        me.button = btn;
+        me.deltaX = dx;
+        me.deltaY = dy;
+        me.timestamp = ts;
         g_inputSystem->onMouse.emit(me);
     }
 }
@@ -46,25 +64,29 @@ EMSCRIPTEN_KEEPALIVE void WxBridge_OnSafeAreaChange(int l, int t, int r, int b) 
 
 EMSCRIPTEN_KEEPALIVE void WxBridge_OnHttpResponse(int cbId, int success, int status, const char* data, const char* errMsg) {
     if (g_httpCallbackManager) {
-        HttpResponse resp{ success != 0, status, data ? data : "", errMsg ? errMsg : "" };
+        HttpResponse resp;
+        resp.success = success != 0;
+        resp.statusCode = status;
+        resp.body = data ? data : "";
+        resp.errMsg = errMsg ? errMsg : "";
         g_httpCallbackManager->invoke(cbId, resp);
     }
 }
 
 EMSCRIPTEN_KEEPALIVE void WxBridge_OnAppShow() {
-    if (auto* hub = GetPlatform()) hub->onAppShow.emit();
+    if (g_platformHub) g_platformHub->onAppShow.emit();
 }
 
 EMSCRIPTEN_KEEPALIVE void WxBridge_OnAppHide() {
-    if (auto* hub = GetPlatform()) hub->onAppHide.emit();
+    if (g_platformHub) g_platformHub->onAppHide.emit();
 }
 
 EMSCRIPTEN_KEEPALIVE void WxBridge_OnError(const char* msg) {
-    if (auto* hub = GetPlatform()) hub->onError.emit(msg ? msg : "");
+    if (g_platformHub) g_platformHub->onError.emit(msg ? msg : "");
 }
 
 EMSCRIPTEN_KEEPALIVE void WxBridge_OnMemoryWarning(int level) {
-    if (auto* hub = GetPlatform()) hub->onMemoryWarning.emit(level);
+    if (g_platformHub) g_platformHub->onMemoryWarning.emit(level);
 }
 
 }
@@ -148,7 +170,7 @@ public:
 
     void sendHttpRequest(const HttpRequest& req, std::function<void(const HttpResponse&)> cb) override {
         auto handle = m_callbackManager.add(std::move(cb), nullptr, 10.0f);
-        int id = static_cast<int>(handle.id());
+        int id = static_cast<int>(handle.getId());
         std::string headersJson = "{";
         bool first = true;
         for (const auto& h : req.headers) {
@@ -183,7 +205,7 @@ public:
                     _free(dPtr); _free(mPtr);
                 }
             });
-        }, id, req.url.c_str(), req.method.c_str(), req.data.c_str(), headersJson.c_str());
+        }, id, req.url.c_str(), req.method.c_str(), req.body.c_str(), headersJson.c_str());
     }
 
     std::string getNetworkType() const override {
@@ -238,6 +260,7 @@ public:
         if (!m_networkSystem->initialize()) return false;
         if (!m_storageSystem->initialize()) return false;
         g_windowSystem = m_windowSystem.get();
+        g_platformHub = this;
         std::cout << "[WxPlatformHub] Initialized" << std::endl;
         return true;
     }
@@ -255,7 +278,10 @@ public:
         }, this, 0, 1);
     }
 
-    void shutdown() override { emscripten_cancel_main_loop(); }
+    void shutdown() override { 
+        g_platformHub = nullptr;
+        emscripten_cancel_main_loop(); 
+    }
     void exitApplication() override { shutdown(); }
 
     IWindowSystem* getWindowSystem() const override { return m_windowSystem.get(); }
@@ -273,10 +299,11 @@ private:
     std::unique_ptr<IStorageSystem> m_storageSystem;
 };
 
-std::unique_ptr<IPlatformHub> createPlatformWx() {
+std::unique_ptr<IPlatformHub> createPlatform_Wx() {
     return std::make_unique<WxPlatformHub>();
 }
 
+} // namespace detail
 } // namespace spt3d
 
-#endif
+#endif // __WXGAME__

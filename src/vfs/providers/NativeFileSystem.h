@@ -1,3 +1,5 @@
+#pragma once
+
 #include "../IFileSystemProvider.h"
 #include <fstream>
 #include <thread>

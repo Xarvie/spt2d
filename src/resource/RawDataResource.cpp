@@ -10,13 +10,13 @@ RawDataResource::RawDataResource(const std::string& logicAddress, const std::str
 
 bool RawDataResource::loadFromMemory(const uint8_t* data, size_t size) {
     if (!data || size == 0) {
-        m_state.store(ResState::Failed, std::memory_order_relaxed);
+        m_state = ResState::Failed;
         return false;
     }
 
     m_data.assign(data, data + size);
     m_stringView.clear();
-    m_state.store(ResState::Ready, std::memory_order_relaxed);
+    m_state = ResState::Ready;
     return true;
 }
 

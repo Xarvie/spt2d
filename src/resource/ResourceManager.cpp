@@ -17,17 +17,6 @@ const char* ResTypeToString(ResType type) {
     }
 }
 
-const char* ResStateToString(ResState state) {
-    switch (state) {
-        case ResState::Unloaded: return "Unloaded";
-        case ResState::Loading:  return "Loading";
-        case ResState::Loaded:   return "Loaded";
-        case ResState::Ready:    return "Ready";
-        case ResState::Failed:   return "Failed";
-        default:                 return "Unknown";
-    }
-}
-
 ResourceManager::ResourceManager() {
     if (s_instance) {
         std::cerr << "[ResourceManager] FATAL: Duplicate instance!" << std::endl;

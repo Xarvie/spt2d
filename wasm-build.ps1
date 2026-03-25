@@ -25,11 +25,25 @@ function Build-Wx {
         New-Item -ItemType Directory -Path "build-wx" | Out-Null
     }
     
-    em++ src/Main.cpp src/platform/wx/WxPlatform.cpp src/graphics/Shader.cpp src/graphics/Graphics.cpp src/core/ThreadModel.cpp `
+    # First compile C file with emcc
+    emcc src/glad/glad.c -c -o build-wx/glad.o -O2 -Isrc/glad
+    
+    # Then compile and link everything with em++
+    em++ `
+        src/Main.cpp `
+        src/platform/Platform.cpp `
+        src/platform/wx/WxPlatform.cpp `
+        src/platform/wx/WxApi.cpp `
+        src/core/ThreadModel.cpp `
+        src/vfs/VirtualFileSystem.cpp `
+        src/vfs/providers/NativeFileSystem.cpp `
+        src/resource/ResourceManager.cpp `
+        src/resource/RawDataResource.cpp `
+        build-wx/glad.o `
         -D__WXGAME__ -D__EMSCRIPTEN__ `
-        -Isrc -Isrc/core -Isrc/platform -Isrc/graphics `
+        -I. -Isrc -Isrc/core -Isrc/platform -Isrc/vfs -Isrc/resource -Isrc/gpu -Isrc/render -Isrc/glad -Ilibs/glm `
         -sWASM=1 -sMODULARIZE=1 -sEXPORT_NAME=GameModule -sINVOKE_RUN=0 `
-        "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_WxBridge_OnTouch','_WxBridge_OnKey','_WxBridge_OnMouse','_WxBridge_OnResize','_WxBridge_OnSafeAreaChange','_WxBridge_OnHttpResponse','_WxBridge_OnAppShow','_WxBridge_OnAppHide','_WxBridge_OnError','_WxBridge_OnMemoryWarning']" `
+        "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_WxBridge_OnTouch','_WxBridge_OnKey','_WxBridge_OnMouse','_WxBridge_OnResize','_WxBridge_OnSafeAreaChange','_WxBridge_OnHttpResponse','_WxBridge_OnAppShow','_WxBridge_OnAppHide','_WxBridge_OnError','_WxBridge_OnMemoryWarning','_WxApi_OnUserInfo','_WxApi_OnLogin','_WxApi_OnCheckSession','_WxApi_OnReadFile','_WxApi_OnWriteFile','_WxApi_OnModal','_WxApi_OnClipboard']" `
         "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','stringToUTF8','UTF8ToString','lengthBytesUTF8','getValue','setValue','allocateUTF8','GL']" `
         -sENVIRONMENT=web -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=33554432 -sWASM_MEM_MAX=2147483648 `
         -sNO_EXIT_RUNTIME=1 -sEXPORT_ES6=0 -sUSE_ES6_IMPORT_META=0 `
@@ -37,11 +51,11 @@ function Build-Wx {
         -sUSE_WEBGL2=1 -sMIN_WEBGL_VERSION=2 -sFULL_ES3=1 `
         -sGL_WORKAROUND_SAFARI_GETCONTEXT_BUG=0 `
         --extern-pre-js wxgame-pre.js `
-        -O2 -o build-wx/game-wasm.js > temp-build.log 2>&1
-
+        -O2 -o build-wx/game-wasm.js 2>&1 | Tee-Object -FilePath temp-build.log
 
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Build FAILED with exit code: $LASTEXITCODE" -ForegroundColor Red
+        Get-Content temp-build.log
         return $false
     }
     
@@ -64,18 +78,32 @@ function Build-Web {
         New-Item -ItemType Directory -Path "build-web" | Out-Null
     }
     
-    em++ src/Main.cpp src/platform/web/WebPlatform.cpp src/graphics/Shader.cpp src/graphics/Graphics.cpp src/core/ThreadModel.cpp `
+    # First compile C file with emcc
+    emcc src/glad/glad.c -c -o build-web/glad.o -O2 -Isrc/glad
+    
+    # Then compile and link everything with em++
+    em++ `
+        src/Main.cpp `
+        src/platform/Platform.cpp `
+        src/platform/web/WebPlatform.cpp `
+        src/core/ThreadModel.cpp `
+        src/vfs/VirtualFileSystem.cpp `
+        src/vfs/providers/NativeFileSystem.cpp `
+        src/resource/ResourceManager.cpp `
+        src/resource/RawDataResource.cpp `
+        build-web/glad.o `
         -D__EMSCRIPTEN__ `
-        -Isrc -Isrc/core -Isrc/platform -Isrc/graphics `
+        -I. -Isrc -Isrc/core -Isrc/platform -Isrc/vfs -Isrc/resource -Isrc/gpu -Isrc/render -Isrc/glad -Ilibs/glm `
         -sWASM=1 `
         "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free']" `
         "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','stringToUTF8','UTF8ToString','lengthBytesUTF8']" `
         -sENVIRONMENT=web -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=16777216 `
         -sUSE_WEBGL2=1 -sMIN_WEBGL_VERSION=2 -sFULL_ES3=1 `
-        -O2 -o build-web/game.js > temp-build.log 2>&1
+        -O2 -o build-web/game.js 2>&1 | Tee-Object -FilePath temp-build.log
     
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Build FAILED with exit code: $LASTEXITCODE" -ForegroundColor Red
+        Get-Content temp-build.log
         return $false
     }
     

@@ -16,11 +16,14 @@ NativeFileSystemProvider::~NativeFileSystemProvider() {
 void NativeFileSystemProvider::startThread() {
     m_running = true;
     m_thread = std::thread([this]() {
+        std::vector<std::function<void()>> tasks;
         while (m_running) {
-            std::function<void()> task;
-            if (m_tasks.waitPop(task)) {
+            tasks.clear();
+            m_tasks.drainTo(tasks);
+            for (auto& task : tasks) {
                 task();
             }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     });
 }

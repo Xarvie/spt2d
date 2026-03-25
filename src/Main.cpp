@@ -1,8 +1,8 @@
-#include "platform/Platform.h"
-#include "graphics/Graphics.h"
-#include "graphics/RenderCommandExecutor.h"
+#include "Spt3D.h"
 #include "core/ThreadModel.h"
-#include "core/Signal.h"
+#include "vfs/VirtualFileSystem.h"
+#include "vfs/providers/NativeFileSystem.h"
+#include "resource/ResourceManager.h"
 
 #include <iostream>
 #include <exception>
@@ -14,62 +14,30 @@
 
 namespace spt3d {
 
-static IPlatformHub* g_platform = nullptr;
-static std::unique_ptr<gfx::Graphics> g_graphics;
+static std::unique_ptr<IPlatformHub> g_platform;
 static std::unique_ptr<ThreadModel> g_threadModel;
-static RenderCommandExecutor g_renderExecutor;
 
-IPlatformHub* GetPlatform() { return g_platform; }
+IPlatformHub* GetPlatform() { return g_platform.get(); }
+
+ResourceManager& GetResourceManager() {
+    return ResourceManager::Instance();
+}
 
 class GameLogicImpl : public IGameLogic {
 public:
     bool onInit() override {
         std::cout << "[Game] Initializing..." << std::endl;
 
-        auto windowInfo = GetPlatform()->getWindowSystem()->getWindowInfo();
-        std::cout << "[Game] Window: " << windowInfo.windowWidth << "x" << windowInfo.windowHeight << std::endl;
+        auto windowInfo = g_platform->getWindowSystem()->getWindowInfo();
+        std::cout << "[Game] Window: " << windowInfo.screenWidth << "x" << windowInfo.screenHeight << std::endl;
 
-        g_graphics = std::make_unique<gfx::Graphics>();
-        if (!g_graphics->initialize()) {
-            std::cerr << "[Game] Failed to initialize graphics" << std::endl;
-            return false;
-        }
+        m_windowWidth = windowInfo.screenWidth;
+        m_windowHeight = windowInfo.screenHeight;
 
-        m_windowWidth = windowInfo.windowWidth;
-        m_windowHeight = windowInfo.windowHeight;
-
-        m_resizeConn = GetPlatform()->getWindowSystem()->onWindowResize.connect([this](int w, int h) {
-            std::cout << "[Game] Window resized: " << w << "x" << h << std::endl;
-            m_windowWidth = w;
-            m_windowHeight = h;
-            m_viewportDirty = true;
-        });
-
-        if (auto* input = GetPlatform()->getInputSystem()) {
-            m_keyConn = input->onKey.connect([](const KeyEvent& e) {
-                if (e.type == KeyEvent::Down) {
-                    std::cout << "[Game] Key pressed: " << e.key << std::endl;
-                    if (e.key == "Escape" || e.key == "q") {
-                        GetPlatform()->exitApplication();
-                    }
-                }
-            });
-
-            m_touchConn = input->onTouch.connect([](const TouchEvent& e) {
-                const char* typeName = e.type == TouchEvent::Begin ? "Begin" :
-                                       e.type == TouchEvent::Move ? "Move" :
-                                       e.type == TouchEvent::End ? "End" : "Cancel";
-                std::cout << "[Game] Touch " << typeName << ": id=" << e.id 
-                          << " x=" << e.x << " y=" << e.y << std::endl;
-            });
-
-            m_mouseConn = input->onMouse.connect([](const MouseEvent& e) {
-                const char* typeName = e.type == MouseEvent::Down ? "Down" :
-                                       e.type == MouseEvent::Up ? "Up" :
-                                       e.type == MouseEvent::Move ? "Move" : "Wheel";
-                std::cout << "[Game] Mouse " << typeName << ": x=" << e.x << " y=" << e.y << std::endl;
-            });
-        }
+#ifndef __WXGAME__
+        VirtualFileSystem::Instance().mount("file", 
+            std::make_unique<NativeFileSystemProvider>("./"));
+#endif
 
         m_running = true;
         std::cout << "[Game] Initialized successfully" << std::endl;
@@ -78,33 +46,30 @@ public:
 
     void onUpdate(float dt, const InputFrame& input) override {
         (void)dt;
-        (void)input;
+        
+        for (const auto& e : input.touchEvents()) {
+            std::cout << "[Game] Touch: id=" << e.id << " x=" << e.x << " y=" << e.y << std::endl;
+        }
+        for (const auto& e : input.keyEvents()) {
+            std::cout << "[Game] Key: " << e.key << " (" << (e.type == KeyEvent::Down ? "Down" : "Up") << ")" << std::endl;
+            if (e.key == "Escape" || e.key == "q") {
+                m_running = false;
+            }
+        }
+        for (const auto& e : input.mouseEvents()) {
+            std::cout << "[Game] Mouse: x=" << e.x << " y=" << e.y << std::endl;
+        }
+        
+        ResourceManager::Instance().update();
+        VirtualFileSystem::Instance().processCompleted();
     }
 
     void onRender(GameWork& work) override {
-        if (m_viewportDirty) {
-            buildViewportCommand(work, 0, 0, m_windowWidth, m_windowHeight);
-            m_viewportDirty = false;
-        }
-
-        buildClearCommand(work, GL_COLOR_BUFFER_BIT, 0.1f, 0.1f, 0.15f, 1.0f);
-
-        if (g_graphics) {
-            g_graphics->recordTriangle(
-                work,
-                -0.5f, -0.5f,  1.0f, 0.0f, 0.0f,
-                 0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
-                 0.0f,  0.5f,  0.0f, 0.0f, 1.0f
-            );
-        }
+        work.reset();
     }
 
     void onShutdown() override {
         std::cout << "[Game] Shutting down..." << std::endl;
-        m_resizeConn.disconnect();
-        m_keyConn.disconnect();
-        m_touchConn.disconnect();
-        m_mouseConn.disconnect();
     }
 
     bool isRunning() const override {
@@ -113,33 +78,51 @@ public:
 
 private:
     bool m_running = false;
-    ScopedConnection<int, int> m_resizeConn;
-    ScopedConnection<const KeyEvent&> m_keyConn;
-    ScopedConnection<const TouchEvent&> m_touchConn;
-    ScopedConnection<const MouseEvent&> m_mouseConn;
     int m_windowWidth = 1280;
     int m_windowHeight = 720;
-    bool m_viewportDirty = true;
 };
 
 static GameLogicImpl* g_gameLogic = nullptr;
+static ScopedConnection<const KeyEvent&> g_keyConn;
+static ScopedConnection<const MouseEvent&> g_mouseConn;
+static ScopedConnection<const TouchEvent&> g_touchConn;
+
+static void connectInputToThreadModel() {
+    auto* input = g_platform->getInputSystem();
+    if (!input || !g_threadModel) return;
+    
+    g_keyConn = input->onKey.connect([](const KeyEvent& e) {
+        if (g_threadModel) g_threadModel->pushKeyEvent(e);
+    });
+    
+    g_mouseConn = input->onMouse.connect([](const MouseEvent& e) {
+        if (g_threadModel) g_threadModel->pushMouseEvent(e);
+    });
+    
+    g_touchConn = input->onTouch.connect([](const TouchEvent& e) {
+        if (g_threadModel) g_threadModel->pushTouchEvent(e);
+    });
+}
 
 static void mainLoopFrame(float dt) {
     (void)dt;
 
     if (!g_threadModel || !g_threadModel->isRunning()) {
-        GetPlatform()->exitApplication();
+        g_platform->exitApplication();
         return;
     }
 
     g_threadModel->onFrameBegin();
-
+    
     const GameWork* work = g_threadModel->getRenderWork();
     if (work) {
-        g_renderExecutor.execute(*work);
+        // TODO: Execute render commands via Executor
+        // executor.execute(*work, gpu);
     }
-
+    
     g_threadModel->onFrameEnd();
+    
+    g_platform->getWindowSystem()->swapBuffers();
 }
 
 } // namespace spt3d
@@ -147,36 +130,27 @@ static void mainLoopFrame(float dt) {
 int main(int argc, char* argv[]) {
     using namespace spt3d;
 
-#ifdef __WXGAME__
-    auto platform = createPlatformWx();
-#elif defined(__EMSCRIPTEN__)
-    auto platform = createPlatformWeb();
-#else
-    auto platform = createPlatformSdl3();
-#endif
+    g_platform = createPlatform();
 
-    if (!platform) {
+    if (!g_platform) {
         std::cerr << "Failed to create platform" << std::endl;
         return -1;
     }
 
-
-
     PlatformConfig config;
     config.width = 1280;
     config.height = 720;
-    config.title = "spt-2d";
-    config.targetFps = 60;
+    config.title = "spt3d";
 
-    if (!platform->initialize(config)) {
+    if (!g_platform->initialize(config)) {
         std::cerr << "Platform initialization failed" << std::endl;
         return -1;
     }
 
-    g_platform = platform.get();
-
     ThreadConfig threadConfig;
-#ifdef __EMSCRIPTEN__
+#if defined(__EMSCRIPTEN__)
+    threadConfig.multithreaded = false;
+#elif defined(__WXGAME__)
     threadConfig.multithreaded = false;
 #else
     threadConfig.multithreaded = true;
@@ -194,9 +168,13 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    connectInputToThreadModel();
+
 #ifdef __EMSCRIPTEN__
     try {
-        platform->runMainLoop(mainLoopFrame);
+        emscripten_set_main_loop_arg([](void*) {
+            mainLoopFrame(0.016f);
+        }, nullptr, 0, 1);
     } catch (const std::exception& e) {
         std::string what = e.what() ? e.what() : "";
         if (what.find("unwind") != std::string::npos) {
@@ -208,10 +186,9 @@ int main(int argc, char* argv[]) {
         std::cout << "[Game] Main loop started" << std::endl;
     }
 #else
-    platform->runMainLoop(mainLoopFrame);
+    g_platform->runMainLoop(mainLoopFrame);
     g_threadModel->shutdown();
-    g_graphics.reset();
-    platform->shutdown();
+    g_platform->shutdown();
 #endif
 
     return 0;

@@ -16,8 +16,10 @@ target_include_directories(game PRIVATE
     ${SRC_DIR}
     ${SRC_DIR}/core
     ${SRC_DIR}/platform
-    ${SRC_DIR}/graphics
     ${SRC_DIR}/resource
+    ${SRC_DIR}/vfs
+    ${SRC_DIR}/gpu
+    ${SRC_DIR}/render
     ${SRC_DIR}/glad
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/libs
@@ -25,29 +27,15 @@ target_include_directories(game PRIVATE
 )
 
 set(SPT3D_SOURCES
-    ${SRC_DIR}/core/Color.cpp
-    ${SRC_DIR}/core/Geometry.cpp
-    ${SRC_DIR}/core/Lifecycle.cpp
-    ${SRC_DIR}/core/Texture.cpp
-    ${SRC_DIR}/core/Shader.cpp
-    ${SRC_DIR}/core/Material.cpp
-    ${SRC_DIR}/core/RenderTarget.cpp
-    ${SRC_DIR}/core/Mesh.cpp
-    ${SRC_DIR}/core/Pipeline.cpp
-    ${SRC_DIR}/core/Camera.cpp
-    ${SRC_DIR}/core/Light.cpp
-    ${SRC_DIR}/core/Model.cpp
-    ${SRC_DIR}/core/DrawList.cpp
-    ${SRC_DIR}/core/PostEffects.cpp
-    ${SRC_DIR}/core/Random.cpp
-    ${SRC_DIR}/core/Input.cpp
-    ${SRC_DIR}/core/Utility.cpp
-    ${SRC_DIR}/core/Audio.cpp
-    ${SRC_DIR}/graphics/Shader.cpp
+    ${SRC_DIR}/core/ThreadModel.cpp
+    ${SRC_DIR}/platform/Platform.cpp
     ${SRC_DIR}/vfs/VirtualFileSystem.cpp
-    ${SRC_DIR}/vfs/VFS.cpp
     ${SRC_DIR}/vfs/providers/NativeFileSystem.cpp
+    ${SRC_DIR}/resource/ResourceManager.cpp
+    ${SRC_DIR}/resource/RawDataResource.cpp
 )
+
+set(GLAD_SOURCE ${SRC_DIR}/glad/glad.c)
 
 if(EMSCRIPTEN)
     if(WXGAME)
@@ -57,20 +45,14 @@ if(EMSCRIPTEN)
         target_sources(game PRIVATE
             ${SRC_DIR}/Main.cpp
             ${SRC_DIR}/platform/wx/WxPlatform.cpp
-            ${SRC_DIR}/graphics/Graphics.cpp
-            ${SRC_DIR}/graphics/Texture.cpp
-            ${SRC_DIR}/graphics/Canvas.cpp
-            ${SRC_DIR}/core/ThreadModel.cpp
-            ${SRC_DIR}/resource/ResourceManager.cpp
-            ${SRC_DIR}/resource/TextureResource.cpp
-            ${SRC_DIR}/resource/RawDataResource.cpp
-            ${SRC_DIR}/glad/glad.c
+            ${SRC_DIR}/platform/wx/WxApi.cpp
+            ${GLAD_SOURCE}
             ${SPT3D_SOURCES}
         )
 
         target_link_options(game PRIVATE
             -sWASM=1 -sMODULARIZE=1 -sEXPORT_NAME=GameModule
-            "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_WxBridge_OnTouch','_WxBridge_OnKey','_WxBridge_OnMouse','_WxBridge_OnResize','_WxBridge_OnSafeAreaChange','_WxBridge_OnHttpResponse','_WxBridge_OnAppShow','_WxBridge_OnAppHide','_WxBridge_OnError','_WxBridge_OnMemoryWarning']"
+            "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free','_WxBridge_OnTouch','_WxBridge_OnKey','_WxBridge_OnMouse','_WxBridge_OnResize','_WxBridge_OnSafeAreaChange','_WxBridge_OnHttpResponse','_WxBridge_OnAppShow','_WxBridge_OnAppHide','_WxBridge_OnError','_WxBridge_OnMemoryWarning','_WxApi_OnUserInfo','_WxApi_OnLogin','_WxApi_OnCheckSession','_WxApi_OnReadFile','_WxApi_OnWriteFile','_WxApi_OnModal','_WxApi_OnClipboard']"
             "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','stringToUTF8','UTF8ToString','lengthBytesUTF8','getValue','setValue','allocateUTF8','GL']"
             -sENVIRONMENT=web -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=16777216
             -sUSE_WEBGL2=1 -sFULL_ES3=1
@@ -82,15 +64,9 @@ if(EMSCRIPTEN)
         message(STATUS "Building for: Web (Emscripten)")
         target_sources(game PRIVATE
             ${SRC_DIR}/Main.cpp
-            ${SRC_DIR}/platform/web/WebPlatform.cpp
-            ${SRC_DIR}/graphics/Graphics.cpp
-            ${SRC_DIR}/graphics/Texture.cpp
-            ${SRC_DIR}/graphics/Canvas.cpp
-            ${SRC_DIR}/core/ThreadModel.cpp
-            ${SRC_DIR}/resource/ResourceManager.cpp
-            ${SRC_DIR}/resource/TextureResource.cpp
-            ${SRC_DIR}/resource/RawDataResource.cpp
-            ${SRC_DIR}/glad/glad.c
+            ${SRC_DIR}/platform/wx/WxPlatform.cpp
+            ${SRC_DIR}/platform/wx/WxApi.cpp
+            ${GLAD_SOURCE}
             ${SPT3D_SOURCES}
         )
         target_link_options(game PRIVATE
@@ -108,13 +84,6 @@ elseif(APPLE)
     target_sources(game PRIVATE
         ${SRC_DIR}/Main.cpp
         ${SRC_DIR}/platform/sdl3/Sdl3Platform.cpp
-        ${SRC_DIR}/graphics/Graphics.cpp
-        ${SRC_DIR}/graphics/Texture.cpp
-        ${SRC_DIR}/graphics/Canvas.cpp
-        ${SRC_DIR}/core/ThreadModel.cpp
-        ${SRC_DIR}/resource/ResourceManager.cpp
-        ${SRC_DIR}/resource/TextureResource.cpp
-        ${SRC_DIR}/resource/RawDataResource.cpp
         ${SRC_DIR}/glad/glad.c
         ${SPT3D_SOURCES}
     )
@@ -126,13 +95,6 @@ elseif(UNIX)
     target_sources(game PRIVATE
         ${SRC_DIR}/Main.cpp
         ${SRC_DIR}/platform/sdl3/Sdl3Platform.cpp
-        ${SRC_DIR}/graphics/Graphics.cpp
-        ${SRC_DIR}/graphics/Texture.cpp
-        ${SRC_DIR}/graphics/Canvas.cpp
-        ${SRC_DIR}/core/ThreadModel.cpp
-        ${SRC_DIR}/resource/ResourceManager.cpp
-        ${SRC_DIR}/resource/TextureResource.cpp
-        ${SRC_DIR}/resource/RawDataResource.cpp
         ${SRC_DIR}/glad/glad.c
         ${SPT3D_SOURCES}
     )
@@ -144,13 +106,6 @@ else()
     target_sources(game PRIVATE
         ${SRC_DIR}/Main.cpp
         ${SRC_DIR}/platform/sdl3/Sdl3Platform.cpp
-        ${SRC_DIR}/graphics/Graphics.cpp
-        ${SRC_DIR}/graphics/Texture.cpp
-        ${SRC_DIR}/graphics/Canvas.cpp
-        ${SRC_DIR}/core/ThreadModel.cpp
-        ${SRC_DIR}/resource/ResourceManager.cpp
-        ${SRC_DIR}/resource/TextureResource.cpp
-        ${SRC_DIR}/resource/RawDataResource.cpp
         ${SRC_DIR}/glad/glad.c
         ${SPT3D_SOURCES}
     )
