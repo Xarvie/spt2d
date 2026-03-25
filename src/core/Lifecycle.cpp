@@ -148,6 +148,9 @@ void Run() {
     }
     
     while (g_state.threadModel->isRunning() && !g_state.shouldQuit) {
+        // Process pending VFS (async file load) callbacks each frame.
+        spt3d::VirtualFileSystem::Instance().processCompleted();
+        
         g_state.threadModel->onFrameBegin();
         
         const spt3d::GameWork* work = g_state.threadModel->getRenderWork();
@@ -162,7 +165,7 @@ void Run() {
         
         g_state.threadModel->onFrameEnd();
         
-//        updateFrameTiming();
+        updateFrameTiming();
     }
 }
 
@@ -179,6 +182,9 @@ void Run(std::function<void()> tick, int target_fps) {
     while (!g_state.shouldQuit) {
         auto frameStart = Clock::now();
         
+        // Process pending VFS (async file load) callbacks each frame.
+        spt3d::VirtualFileSystem::Instance().processCompleted();
+        
         if (tick) tick();
         
         if (g_state.platformPtr) {
@@ -188,7 +194,7 @@ void Run(std::function<void()> tick, int target_fps) {
             }
         }
         
-//        updateFrameTiming();
+        updateFrameTiming();
         
         if (frameDuration.count() > 0) {
             auto elapsed = Clock::now() - frameStart;

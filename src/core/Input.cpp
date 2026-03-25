@@ -83,6 +83,13 @@ static Gesture g_detectedGesture = Gesture::None;
 static float g_gestureHoldDuration = 0;
 static Vec2 g_gestureDragVec = {0, 0};
 
+// Static storage for input connections — must outlive the callbacks.
+// Without this, the ScopedConnection temporaries returned by connect()
+// are destroyed immediately, silently disconnecting the slots.
+static ScopedConnection<const KeyEvent&>   s_keyConn;
+static ScopedConnection<const MouseEvent&> s_mouseConn;
+static ScopedConnection<const TouchEvent&> s_touchConn;
+
 void InitInput() {
     auto* platform = GetPlatform();
     if (!platform) return;
@@ -90,7 +97,7 @@ void InitInput() {
     auto* input = platform->getInputSystem();
     if (!input) return;
     
-    input->onKey.connect([](const KeyEvent& e) {
+    s_keyConn = input->onKey.connect([](const KeyEvent& e) {
         int key = static_cast<int>(keyCodeFromString(e.code));
         if (e.type == KeyEvent::Down) {
             if (!g_keyState[key]) {
@@ -105,7 +112,7 @@ void InitInput() {
         }
     });
     
-    input->onMouse.connect([](const MouseEvent& e) {
+    s_mouseConn = input->onMouse.connect([](const MouseEvent& e) {
         g_mousePos = {e.x, e.y};
         if (e.type == MouseEvent::Wheel) {
             g_wheel = e.deltaY;
@@ -125,7 +132,7 @@ void InitInput() {
         }
     });
     
-    input->onTouch.connect([](const TouchEvent& e) {
+    s_touchConn = input->onTouch.connect([](const TouchEvent& e) {
         int id = e.id;
         g_pointerPos[id] = {e.x, e.y};
         

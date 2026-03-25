@@ -180,7 +180,7 @@ Mesh MeshBuilder::Build() {
     mesh.p->bounds = bounds;
     
     std::vector<float> interleaved;
-    interleaved.reserve(vertexCount * 14);
+    interleaved.reserve(vertexCount * 16);
     
     for (int i = 0; i < vertexCount; ++i) {
         if (i * 3 + 2 < p->positions.size()) {
@@ -242,7 +242,8 @@ Mesh MeshBuilder::Build() {
     glBufferData(GL_ARRAY_BUFFER, interleaved.size() * sizeof(float), interleaved.data(),
                  p->dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
     
-    GLsizei stride = 14 * sizeof(float);
+    // Vertex layout: pos(3) + normal(3) + uv(2) + color(4) + tangent(4) = 16 floats
+    GLsizei stride = 16 * sizeof(float);
     
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
@@ -284,10 +285,10 @@ Mesh MeshBuilder::Build() {
 
 void UpdatePos(Mesh m, const Vec3* data, int n, int off) {
     if (!m.Valid() || !data || n <= 0) return;
-    // Vertex layout is interleaved with stride = 14 floats:
+    // Vertex layout is interleaved with stride = 16 floats:
     //   [pos(3) normal(3) uv(2) color(4) tangent(4)]
     // We must write each position individually at its stride offset.
-    constexpr int kStride = 14;
+    constexpr int kStride = 16;
     constexpr int kPosOffset = 0;  // position starts at float 0
     glBindBuffer(GL_ARRAY_BUFFER, m.p->vbo);
     for (int i = 0; i < n; ++i) {
@@ -307,7 +308,7 @@ void UpdateIdx(Mesh m, const uint16_t* data, int n, int off) {
 void UpdateUV(Mesh m, const Vec2* data, int n, int off) {
     if (!m.Valid() || !data || n <= 0) return;
     // UV starts at float offset 6 within each vertex (after pos(3) + normal(3))
-    constexpr int kStride = 14;
+    constexpr int kStride = 16;
     constexpr int kUVOffset = 6;
     glBindBuffer(GL_ARRAY_BUFFER, m.p->vbo);
     for (int i = 0; i < n; ++i) {

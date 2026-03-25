@@ -298,4 +298,17 @@ Material CloneMat(Material src) {
     return mat;
 }
 
+void ApplyMat(Material mat) {
+    if (!mat.p) return;
+    Shader* shader = mat.GetShader();
+    if (shader && shader->Valid()) {
+        mat.p->applyToPass(*shader);
+    }
+}
+
+void ApplyMatState(Material mat) {
+    if (!mat.p) return;
+    mat.p->applyRenderState();
+}
+
 }

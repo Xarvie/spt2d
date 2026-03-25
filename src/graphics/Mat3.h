@@ -116,7 +116,6 @@ inline void invert(const float* m, float* out) {
     out[8] = (m[0] * m[4] - m[3] * m[1]) * det;
 }
 
+} // namespace Mat3
 } // namespace gfx
 } // namespace spt3d
-
-}

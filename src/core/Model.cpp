@@ -67,9 +67,13 @@ Model LoadModel(std::string_view url, Callback cb) {
     model.p = std::make_shared<Model::Impl>();
     
     FsRead(url, [model, cb](const uint8_t* data, size_t size, bool success) {
-        if (success && data) {
-            model.p->valid = true;
-            if (cb) cb(true);
+        if (success && data && size > 0) {
+            // TODO: Implement actual model format parsing (glTF / OBJ).
+            // Until then, mark as failed — a model with zero parts is not
+            // "valid" even if the file was read successfully.
+            // model.p->valid = true;  // FIXME: uncomment after parser is implemented
+            Log(LogLvl::Warn, "LoadModel: file read OK but model parsing not yet implemented");
+            if (cb) cb(false);
         } else {
             if (cb) cb(false);
         }

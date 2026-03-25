@@ -228,12 +228,14 @@ public:
             for (std::size_t i = 0; i < m_slots.size(); ++i) {
                 auto& c = m_slots[i];
                 if (!c.pendingRemove && c.slot) {
-                    // Temporarily release the lock while invoking the slot so
-                    // that connect()/disconnect() calls from other threads (or
-                    // from within the slot itself, before we increment depth)
-                    // do not deadlock.
+                    // Copy the slot to a local BEFORE releasing the lock.
+                    // While the lock is released, connect() from another thread
+                    // may push_back to m_slots, which can reallocate the vector
+                    // and invalidate the reference `c`.  The local copy ensures
+                    // we invoke a valid callable regardless of reallocation.
+                    Slot localSlot = c.slot;
                     lk.unlock();
-                    c.slot(args...);    // invoke without lock
+                    localSlot(args...);    // invoke without lock
                     lk.lock();
                     // After re-locking, `m_slots` may have grown (new connects)
                     // but will not have shrunk (removes are deferred via flag).

@@ -49,8 +49,10 @@ RenderTarget ScreenTarget() {
     RenderTarget rt;
     rt.p = std::make_shared<RenderTarget::Impl>();
     rt.p->isScreen = true;
-    rt.p->width = 0;
-    rt.p->height = 0;
+    // Query current screen dimensions so that W()/H() return meaningful values.
+    // Without this, code that uses rt.W()/rt.H() for viewport calculations gets 0.
+    rt.p->width = ScreenW();
+    rt.p->height = ScreenH();
     return rt;
 }
 

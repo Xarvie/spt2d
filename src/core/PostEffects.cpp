@@ -341,6 +341,12 @@ void Blit(Texture src, RenderTarget dst, Material mat) {
     }
     
     shaderPtr->use();
+    
+    // Apply all material uniforms (u_threshold, u_intensity, u_exposure, etc.)
+    // Without this, post-processing effects receive no parameters.
+    ApplyMat(mat);
+    ApplyMatState(mat);
+    
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, src.GL());
     shaderPtr->setInt("u_texture", 0);
@@ -413,6 +419,11 @@ void BlitMulti(std::initializer_list<Texture> inputs, RenderTarget dst, Material
     
     shaderPtr->use();
     
+    // Apply material uniforms before binding textures — material textures
+    // use explicit slots so they won't conflict with the input textures below.
+    ApplyMat(mat);
+    ApplyMatState(mat);
+    
     int slot = 0;
     for (auto& tex : inputs) {
         if (tex.Valid()) {
@@ -433,10 +444,92 @@ void BlitMulti(std::initializer_list<Texture> inputs, RenderTarget dst, Material
 StageDesc FxBloom(Texture src, RenderTarget dst, float threshold, float intensity, int iterations) {
     StageDesc stage;
     stage.name = "Bloom";
-    stage.type = StageType::Blit;
+    stage.type = StageType::Custom;
     stage.target = dst;
-    stage.blit_material = CreateMat(createBlitShader(s_blitVS, s_bloomCombineFS));
-    stage.AddBlitInput(src);
+    
+    // Capture parameters by value for the lambda.
+    stage.custom_fn = [src, dst, threshold, intensity, iterations]() {
+        if (!src.Valid()) return;
+        
+        int w = src.W() / 2;
+        int h = src.H() / 2;
+        if (w <= 0 || h <= 0) { w = ScreenW() / 2; h = ScreenH() / 2; }
+        if (w <= 0 || h <= 0) return;
+        
+        // Create temporary ping-pong RTs for the blur at half resolution.
+        RenderTarget rtA = CreateRT(w, h);
+        RenderTarget rtB = CreateRT(w, h);
+        if (!rtA.Valid() || !rtB.Valid()) return;
+        
+        const Mesh& tri = cachedFullscreenTri();
+        
+        // --- Pass 1: Bright extraction ---
+        {
+            static Shader brightShader = createBlitShader(s_blitVS, s_bloomBrightFS);
+            glBindFramebuffer(GL_FRAMEBUFFER, rtA.GL());
+            glViewport(0, 0, w, h);
+            brightShader.use();
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, src.GL());
+            brightShader.setInt("u_texture", 0);
+            brightShader.setFloat("u_threshold", threshold);
+            glBindVertexArray(tri.GL());
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+        }
+        
+        // --- Pass 2 & 3: Separable Gaussian blur (ping-pong) ---
+        {
+            static Shader blurShader = createBlitShader(s_blitVS, s_bloomBlurFS);
+            blurShader.use();
+            
+            for (int i = 0; i < std::max(1, iterations); ++i) {
+                // Horizontal blur: rtA → rtB
+                glBindFramebuffer(GL_FRAMEBUFFER, rtB.GL());
+                glViewport(0, 0, w, h);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, rtA.GetColor(0).GL());
+                blurShader.setInt("u_texture", 0);
+                blurShader.setVec2("u_direction", 1.0f, 0.0f);
+                glBindVertexArray(tri.GL());
+                glDrawArrays(GL_TRIANGLES, 0, 3);
+                
+                // Vertical blur: rtB → rtA
+                glBindFramebuffer(GL_FRAMEBUFFER, rtA.GL());
+                glViewport(0, 0, w, h);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, rtB.GetColor(0).GL());
+                blurShader.setInt("u_texture", 0);
+                blurShader.setVec2("u_direction", 0.0f, 1.0f);
+                glBindVertexArray(tri.GL());
+                glDrawArrays(GL_TRIANGLES, 0, 3);
+            }
+        }
+        
+        // --- Pass 4: Combine original + bloom ---
+        {
+            static Shader combineShader = createBlitShader(s_blitVS, s_bloomCombineFS);
+            if (dst.Valid()) {
+                glBindFramebuffer(GL_FRAMEBUFFER, dst.GL());
+                glViewport(0, 0, dst.W(), dst.H());
+            } else {
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                glViewport(0, 0, ScreenW(), ScreenH());
+            }
+            combineShader.use();
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, src.GL());
+            combineShader.setInt("u_texture", 0);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, rtA.GetColor(0).GL());
+            combineShader.setInt("u_bloom", 1);
+            combineShader.setFloat("u_intensity", intensity);
+            glBindVertexArray(tri.GL());
+            glDrawArrays(GL_TRIANGLES, 0, 3);
+        }
+        
+        glBindVertexArray(0);
+    };
+    
     return stage;
 }
 
