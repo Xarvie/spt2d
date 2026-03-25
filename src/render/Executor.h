@@ -19,6 +19,8 @@
 
 namespace spt3d {
 
+struct MaterialSnapshot;
+
 // =========================================================================
 //  RenderStateCache — avoids redundant GL state changes
 // =========================================================================
@@ -114,8 +116,8 @@ void buildBindRTCommand(GameWork& work, RTHandle rt, uint64_t sortKey = 0);
 /// Submit a fullscreen blit command into GameWork.
 void buildBlitCommand(GameWork& work, ShaderHandle shader,
                       const TexHandle* inputs, int inputCount,
-                      RTHandle target = kNullRT,
-                      const MaterialSnapshot* uniforms = nullptr,
-                      uint64_t sortKey = 0);
+                      RTHandle target,
+                      const MaterialSnapshot* uniforms,
+                      uint64_t sortKey);
 
 } // namespace spt3d

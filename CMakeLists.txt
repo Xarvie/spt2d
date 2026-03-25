@@ -33,6 +33,12 @@ set(SPT3D_SOURCES
     ${SRC_DIR}/vfs/providers/NativeFileSystem.cpp
     ${SRC_DIR}/resource/ResourceManager.cpp
     ${SRC_DIR}/resource/RawDataResource.cpp
+    ${SRC_DIR}/resource/MeshData.cpp
+    ${SRC_DIR}/resource/DrawList.cpp
+    ${SRC_DIR}/gpu/GPUDevice.cpp
+    ${SRC_DIR}/render/Executor.cpp
+    ${SRC_DIR}/render/Pipeline.cpp
+    ${SRC_DIR}/Types.cpp
 )
 
 set(GLAD_SOURCE ${SRC_DIR}/glad/glad.c)

@@ -1,8 +1,14 @@
 #include "Spt3D.h"
 #include "core/ThreadModel.h"
+#include "core/RenderCommand.h"
 #include "vfs/VirtualFileSystem.h"
 #include "vfs/providers/NativeFileSystem.h"
 #include "resource/ResourceManager.h"
+#include "resource/MeshData.h"
+#include "resource/DrawList.h"
+#include "gpu/GPUDevice.h"
+#include "gpu/BuiltinShaders.h"
+#include "render/Executor.h"
 
 #include <iostream>
 #include <exception>
@@ -14,13 +20,23 @@
 
 namespace spt3d {
 
+static constexpr uint32_t kGLColorBufferBit = 0x00004000;
+static constexpr uint32_t kGLDepthBufferBit = 0x00000100;
+
 static std::unique_ptr<IPlatformHub> g_platform;
 static std::unique_ptr<ThreadModel> g_threadModel;
+static std::unique_ptr<ResourceManager> g_resourceManager;
+static std::unique_ptr<GPUDevice> g_gpu;
+static std::unique_ptr<Executor> g_executor;
 
 IPlatformHub* GetPlatform() { return g_platform.get(); }
 
 ResourceManager& GetResourceManager() {
-    return ResourceManager::Instance();
+    return *g_resourceManager;
+}
+
+GPUDevice& GetGPUDevice() {
+    return *g_gpu;
 }
 
 class GameLogicImpl : public IGameLogic {
@@ -39,13 +55,19 @@ public:
             std::make_unique<NativeFileSystemProvider>("./"));
 #endif
 
+        if (!initGPU()) {
+            std::cerr << "[Game] GPU initialization failed" << std::endl;
+            return false;
+        }
+
         m_running = true;
         std::cout << "[Game] Initialized successfully" << std::endl;
         return true;
     }
 
     void onUpdate(float dt, const InputFrame& input) override {
-        (void)dt;
+        m_time += dt;
+        m_dt = dt;
         
         for (const auto& e : input.touchEvents()) {
             std::cout << "[Game] Touch: id=" << e.id << " x=" << e.x << " y=" << e.y << std::endl;
@@ -57,19 +79,52 @@ public:
             }
         }
         for (const auto& e : input.mouseEvents()) {
-            std::cout << "[Game] Mouse: x=" << e.x << " y=" << e.y << std::endl;
         }
         
-        ResourceManager::Instance().update();
+        g_resourceManager->update();
         VirtualFileSystem::Instance().processCompleted();
     }
 
     void onRender(GameWork& work) override {
         work.reset();
+        work.setScreenSize(m_windowWidth, m_windowHeight);
+
+        m_camera.position = Vec3(0.0f, 2.0f, 5.0f);
+        m_camera.target = Vec3(0.0f, 0.0f, 0.0f);
+        m_camera.up = Vec3(0.0f, 1.0f, 0.0f);
+        m_camera.fov = 60.0f;
+        m_camera.near_clip = 0.1f;
+        m_camera.far_clip = 100.0f;
+        m_camera.ortho = false;
+        
+        float aspect = static_cast<float>(m_windowWidth) / m_windowHeight;
+        work.setCamera(m_camera, aspect, m_time, m_dt);
+
+        buildClearCommand(work, kGLColorBufferBit | kGLDepthBufferBit,
+                          0.1f, 0.1f, 0.2f, 1.0f, 1.0f, 0);
+
+        float angle = m_time * 0.5f;
+        Mat4 model = glm::rotate(Mat4(1.0f), angle, Vec3(0.0f, 1.0f, 0.0f));
+
+        MaterialSnapshot mat;
+        mat.shader = m_shader;
+        mat.setVec4("u_color", Vec4(0.8f, 0.2f, 0.2f, 1.0f));
+        mat.setTexture("u_texture", g_gpu->whiteTex(), 0);
+
+        m_drawList.clear();
+        m_drawList.push(m_cubeMesh, mat, model);
+        m_drawList.emitCommands(work, SortMode::FrontToBack, m_camera.position);
     }
 
     void onShutdown() override {
         std::cout << "[Game] Shutting down..." << std::endl;
+        m_drawList.clear();
+        if (g_gpu && m_cubeMesh.value != 0) {
+            g_gpu->destroyMesh(m_cubeMesh);
+        }
+        if (g_gpu && m_shader.value != 0) {
+            g_gpu->destroyShader(m_shader);
+        }
     }
 
     bool isRunning() const override {
@@ -77,9 +132,49 @@ public:
     }
 
 private:
+    bool initGPU() {
+        if (!g_gpu->initialize()) {
+            std::cerr << "[Game] GPUDevice::initialize() failed" << std::endl;
+            return false;
+        }
+
+        std::cout << "[Game] GPU: " << g_gpu->caps().renderer << std::endl;
+        std::cout << "[Game] Max Texture Size: " << g_gpu->caps().maxTexSize << std::endl;
+
+        MeshData cubeData = GenCubeData(1.0f, 1.0f, 1.0f);
+        m_cubeMesh = g_gpu->createMesh(cubeData);
+        if (m_cubeMesh.value == 0) {
+            std::cerr << "[Game] Failed to create cube mesh" << std::endl;
+            return false;
+        }
+
+        ShaderDesc shaderDesc;
+        ShaderPassDesc pass;
+        pass.name = "FORWARD";
+        pass.vs = shaders::kUnlitVS;
+        pass.fs = shaders::kUnlitFS;
+        shaderDesc.passes.push_back(pass);
+
+        m_shader = g_gpu->createShader(shaderDesc);
+        if (m_shader.value == 0) {
+            std::cerr << "[Game] Failed to create shader" << std::endl;
+            return false;
+        }
+
+        std::cout << "[Game] GPU resources created" << std::endl;
+        return true;
+    }
+
     bool m_running = false;
     int m_windowWidth = 1280;
     int m_windowHeight = 720;
+    float m_time = 0.0f;
+    float m_dt = 0.0f;
+
+    MeshHandle m_cubeMesh;
+    ShaderHandle m_shader;
+    Camera3D m_camera;
+    DrawList m_drawList;
 };
 
 static GameLogicImpl* g_gameLogic = nullptr;
@@ -115,20 +210,19 @@ static void mainLoopFrame(float dt) {
     g_threadModel->onFrameBegin();
     
     const GameWork* work = g_threadModel->getRenderWork();
-    if (work) {
-        // TODO: Execute render commands via Executor
-        // executor.execute(*work, gpu);
+    if (work && g_executor && g_gpu) {
+        g_executor->execute(*work, *g_gpu);
     }
     
     g_threadModel->onFrameEnd();
-    
-    g_platform->getWindowSystem()->swapBuffers();
 }
 
 } // namespace spt3d
 
 int main(int argc, char* argv[]) {
     using namespace spt3d;
+
+    g_resourceManager = std::make_unique<ResourceManager>();
 
     g_platform = createPlatform();
 
@@ -147,16 +241,11 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    g_gpu = std::make_unique<GPUDevice>();
+    g_executor = std::make_unique<Executor>(512);
+
     ThreadConfig threadConfig;
-#if defined(__EMSCRIPTEN__)
     threadConfig.multithreaded = false;
-#elif defined(__WXGAME__)
-    threadConfig.multithreaded = false;
-#else
-    threadConfig.multithreaded = true;
-    threadConfig.logicHz = 30;
-    threadConfig.renderHz = 60;
-#endif
 
     g_threadModel = ThreadModel::create(threadConfig);
 
@@ -188,6 +277,7 @@ int main(int argc, char* argv[]) {
 #else
     g_platform->runMainLoop(mainLoopFrame);
     g_threadModel->shutdown();
+    g_gpu->shutdown();
     g_platform->shutdown();
 #endif
 

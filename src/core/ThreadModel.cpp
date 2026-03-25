@@ -156,7 +156,16 @@ public:
         }
 
         m_running = true;
+        m_renderReady = true;
         m_logicThread = std::thread(&MultiThreadModel::logicLoop, this);
+
+        {
+            std::unique_lock<std::mutex> lock(m_syncMutex);
+            m_cv.wait(lock, [this] { return m_firstFrameReady || !m_running; });
+        }
+
+        m_workBuffer.fetch();
+        m_renderWork = &m_workBuffer.readBuffer();
 
         std::cout << "[MultiThreadModel] Initialized (multi-threaded mode)" << std::endl;
         return true;
@@ -199,8 +208,9 @@ public:
         }
         m_lastRenderTime = now;
 
-        m_workBuffer.fetch();
-        m_renderWork = &m_workBuffer.readBuffer();
+        if (m_workBuffer.fetch()) {
+            m_renderWork = &m_workBuffer.readBuffer();
+        }
     }
 
     const GameWork* getRenderWork() override {
@@ -278,6 +288,12 @@ private:
             }
             
             m_workBuffer.publish();
+
+            if (!m_firstFrameReady) {
+                std::lock_guard<std::mutex> lock(m_syncMutex);
+                m_firstFrameReady = true;
+                m_cv.notify_one();
+            }
         }
     }
 
@@ -297,6 +313,7 @@ private:
     std::mutex                  m_syncMutex;
     std::condition_variable     m_cv;
     bool                        m_renderReady = true;
+    bool                        m_firstFrameReady = false;
 
     FrameStats                  m_frameStats;
     std::chrono::high_resolution_clock::time_point m_lastRenderTime;
