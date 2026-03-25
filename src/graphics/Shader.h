@@ -9,6 +9,7 @@
 #include <cstdint>
 
 namespace spt3d {
+namespace gfx {
 
 // =============================================================================
 //  AttribBinding
@@ -194,4 +195,5 @@ private:
         m_uniformCache;
 };
 
+} // namespace gfx
 } // namespace spt3d

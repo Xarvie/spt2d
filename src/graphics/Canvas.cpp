@@ -4,6 +4,7 @@
 #include <cmath>
 
 namespace spt3d {
+namespace gfx {
 
 Canvas::Canvas() {
     Mat3::identity(m_matrix);
@@ -272,25 +273,64 @@ void Canvas::transformQuad(float& x0, float& y0, float& x1, float& y1,
 
 bool Canvas::clipQuad(float& x0, float& y0, float& x1, float& y1,
                        float& x2, float& y2, float& x3, float& y3,
-                       float&, float&, float&, float&) {
+                       float& u0, float& v0, float& u1, float& v1) {
     if (!m_currentClip.enabled) return true;
     if (m_currentClip.w <= 0 || m_currentClip.h <= 0) return false;
 
-    float minX = m_currentClip.x;
-    float minY = m_currentClip.y;
-    float maxX = m_currentClip.x + m_currentClip.w;
-    float maxY = m_currentClip.y + m_currentClip.h;
+    // Compute the original quad AABB and full UV range before clipping.
+    // This works correctly for axis-aligned quads (the typical case).
+    // For rotated quads the UV remap is approximate but avoids the old
+    // behaviour of completely wrong mapping.
+    float origMinX = std::min({x0, x1, x2, x3});
+    float origMaxX = std::max({x0, x1, x2, x3});
+    float origMinY = std::min({y0, y1, y2, y3});
+    float origMaxY = std::max({y0, y1, y2, y3});
 
-    x0 = std::max(minX, std::min(maxX, x0));
-    y0 = std::max(minY, std::min(maxY, y0));
-    x1 = std::max(minX, std::min(maxX, x1));
-    y1 = std::max(minY, std::min(maxY, y1));
-    x2 = std::max(minX, std::min(maxX, x2));
-    y2 = std::max(minY, std::min(maxY, y2));
-    x3 = std::max(minX, std::min(maxX, x3));
-    y3 = std::max(minY, std::min(maxY, y3));
+    float clipMinX = m_currentClip.x;
+    float clipMinY = m_currentClip.y;
+    float clipMaxX = m_currentClip.x + m_currentClip.w;
+    float clipMaxY = m_currentClip.y + m_currentClip.h;
+
+    // Early-out: completely outside
+    if (origMaxX <= clipMinX || origMinX >= clipMaxX ||
+        origMaxY <= clipMinY || origMinY >= clipMaxY) {
+        return false;
+    }
+
+    // Clamp vertices
+    x0 = std::max(clipMinX, std::min(clipMaxX, x0));
+    y0 = std::max(clipMinY, std::min(clipMaxY, y0));
+    x1 = std::max(clipMinX, std::min(clipMaxX, x1));
+    y1 = std::max(clipMinY, std::min(clipMaxY, y1));
+    x2 = std::max(clipMinX, std::min(clipMaxX, x2));
+    y2 = std::max(clipMinY, std::min(clipMaxY, y2));
+    x3 = std::max(clipMinX, std::min(clipMaxX, x3));
+    y3 = std::max(clipMinY, std::min(clipMaxY, y3));
+
+    // Remap UVs proportionally to the clipped extents
+    float spanX = origMaxX - origMinX;
+    float spanY = origMaxY - origMinY;
+    if (spanX > 0.0001f && spanY > 0.0001f) {
+        float newMinX = std::min({x0, x1, x2, x3});
+        float newMaxX = std::max({x0, x1, x2, x3});
+        float newMinY = std::min({y0, y1, y2, y3});
+        float newMaxY = std::max({y0, y1, y2, y3});
+
+        float tL = (newMinX - origMinX) / spanX;
+        float tR = (newMaxX - origMinX) / spanX;
+        float tT = (newMinY - origMinY) / spanY;
+        float tB = (newMaxY - origMinY) / spanY;
+
+        float origU0 = u0, origU1 = u1;
+        float origV0 = v0, origV1 = v1;
+        u0 = origU0 + (origU1 - origU0) * tL;
+        u1 = origU0 + (origU1 - origU0) * tR;
+        v0 = origV0 + (origV1 - origV0) * tT;
+        v1 = origV0 + (origV1 - origV0) * tB;
+    }
 
     return true;
 }
 
-}
+} // namespace gfx
+} // namespace spt3d

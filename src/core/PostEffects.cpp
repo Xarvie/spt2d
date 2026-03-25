@@ -118,55 +118,64 @@ in vec2 v_uv;
 uniform sampler2D u_texture;
 uniform vec2 u_resolution;
 out vec4 fragColor;
+
+// Simplified FXAA based on Timothy Lottes' FXAA 3.11
+// Tuning constants
+const float FXAA_REDUCE_MIN = 1.0 / 128.0;
+const float FXAA_REDUCE_MUL = 1.0 / 8.0;
+const float FXAA_SPAN_MAX   = 8.0;
+
 void main() {
     vec2 texel = 1.0 / u_resolution;
-    vec4 color = texture(u_texture, v_uv);
-    vec4 colorN = texture(u_texture, v_uv + vec2(0.0, texel.y));
-    vec4 colorS = texture(u_texture, v_uv - vec2(0.0, texel.y));
-    vec4 colorE = texture(u_texture, v_uv + vec2(texel.x, 0.0));
-    vec4 colorW = texture(u_texture, v_uv - vec2(texel.x, 0.0));
-    vec4 colorNW = texture(u_texture, v_uv + vec2(-texel.x, texel.y));
-    vec4 colorNE = texture(u_texture, v_uv + vec2(texel.x, texel.y));
-    vec4 colorSW = texture(u_texture, v_uv + vec2(-texel.x, -texel.y));
-    vec4 colorSE = texture(u_texture, v_uv + vec2(texel.x, -texel.y));
-    float lumaN = dot(colorN.rgb, vec3(0.299, 0.587, 0.114));
-    float lumaS = dot(colorS.rgb, vec3(0.299, 0.587, 0.114));
-    float lumaE = dot(colorE.rgb, vec3(0.299, 0.587, 0.114));
-    float lumaW = dot(colorW.rgb, vec3(0.299, 0.587, 0.114));
-    float lumaNW = dot(colorNW.rgb, vec3(0.299, 0.587, 0.114));
-    float lumaNE = dot(colorNE.rgb, vec3(0.299, 0.587, 0.114));
-    float lumaSW = dot(colorSW.rgb, vec3(0.299, 0.587, 0.114));
-    float lumaSE = dot(colorSE.rgb, vec3(0.299, 0.587, 0.114));
-    float lumaM = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-    float lumaMin = min(lumaM, min(min(lumaN, lumaS), min(lumaE, lumaW)));
-    float lumaMax = max(lumaM, max(max(lumaN, lumaS), max(lumaE, lumaW)));
-    float lumaRange = lumaMax - lumaMin;
-    if (lumaRange < max(0.0312, lumaMax * 0.125)) {
-        fragColor = color;
-        return;
+
+    // Sample centre and 4 diagonal neighbours
+    vec3 rgbNW = texture(u_texture, v_uv + vec2(-1.0, -1.0) * texel).rgb;
+    vec3 rgbNE = texture(u_texture, v_uv + vec2( 1.0, -1.0) * texel).rgb;
+    vec3 rgbSW = texture(u_texture, v_uv + vec2(-1.0,  1.0) * texel).rgb;
+    vec3 rgbSE = texture(u_texture, v_uv + vec2( 1.0,  1.0) * texel).rgb;
+    vec3 rgbM  = texture(u_texture, v_uv).rgb;
+
+    // Luma (perceptual)
+    vec3 luma = vec3(0.299, 0.587, 0.114);
+    float lumaNW = dot(rgbNW, luma);
+    float lumaNE = dot(rgbNE, luma);
+    float lumaSW = dot(rgbSW, luma);
+    float lumaSE = dot(rgbSE, luma);
+    float lumaM  = dot(rgbM,  luma);
+
+    float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));
+    float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));
+
+    // Edge detection direction
+    vec2 dir;
+    dir.x = -((lumaNW + lumaNE) - (lumaSW + lumaSE));
+    dir.y =  ((lumaNW + lumaSW) - (lumaNE + lumaSE));
+
+    float dirReduce = max((lumaNW + lumaNE + lumaSW + lumaSE) * 0.25 * FXAA_REDUCE_MUL, FXAA_REDUCE_MIN);
+    float rcpDirMin = 1.0 / (min(abs(dir.x), abs(dir.y)) + dirReduce);
+
+    dir = min(vec2(FXAA_SPAN_MAX), max(vec2(-FXAA_SPAN_MAX), dir * rcpDirMin)) * texel;
+
+    // Two-tap filter along edge direction
+    vec3 rgbA = 0.5 * (
+        texture(u_texture, v_uv + dir * (1.0 / 3.0 - 0.5)).rgb +
+        texture(u_texture, v_uv + dir * (2.0 / 3.0 - 0.5)).rgb
+    );
+
+    // Four-tap filter for wider sampling
+    vec3 rgbB = rgbA * 0.5 + 0.25 * (
+        texture(u_texture, v_uv + dir * -0.5).rgb +
+        texture(u_texture, v_uv + dir *  0.5).rgb
+    );
+
+    float lumaB = dot(rgbB, luma);
+
+    // If the wider sample landed outside the local luma range, use the narrower one
+    if (lumaB < lumaMin || lumaB > lumaMax) {
+        fragColor = vec4(rgbA, 1.0);
+    } else {
+        fragColor = vec4(rgbB, 1.0);
     }
-    float dirN = abs(lumaN - lumaM);
-    float dirS = abs(lumaS - lumaM);
-    float dirE = abs(lumaE - lumaM);
-    float dirW = abs(lumaW - lumaM);
-    float dirNW = abs(lumaNW - lumaM);
-    float dirNE = abs(lumaNE - lumaM);
-    float dirSW = abs(lumaSW - lumaM);
-    float dirSE = abs(lumaSE - lumaM);
-    vec2 dir = vec2(0.0);
-    dir.x = -dirNW - dirN - dirNE + dirSW + dirS + dirSE;
-    dir.y = -dirNW + dirN - dirSW + dirS - dirSE + dirNE;
-    float dirReduce = max(dir.x, dir.y) / lumaRange;
-    dir = dir / max(1.0, dirReduce) * texel;
-    vec4 resultA = 0.5 * (
-        texture(u_texture, v_uv + dir * vec2(-0.25)) +
-        texture(u_texture, v_uv + dir * vec2(0.25))
-    );
-    vec4 resultB = 0.5 * (
-        texture(u_texture, v_uv + dir * vec2(-0.5)) +
-        texture(u_texture, v_uv + dir * vec2(0.5))
-    );
-    fragColor = mix(resultA, resultB, 0.5);
 }
 )";
 
@@ -228,8 +237,8 @@ void main() {
     vec2 texelSize = 1.0 / vec2(textureSize(u_texture, 0));
     vec4 color = vec4(0.0);
     float weights[5] = float[](0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216);
-    for (int i = -2; i <= 2; i++) {
-        color += texture(u_texture, v_uv + float(i) * u_radius * u_direction * texelSize) * weights[abs(i) + 2];
+    for (int i = -4; i <= 4; i++) {
+        color += texture(u_texture, v_uv + float(i) * u_radius * u_direction * texelSize) * weights[abs(i)];
     }
     fragColor = color;
 }
@@ -289,6 +298,14 @@ static Shader createBlitShader(const char* vs, const char* fs) {
     return CreateShader({ ShaderPass{"DEFAULT", vs, fs} });
 }
 
+// Cached fullscreen triangle — created once, reused every frame.
+// Uses shared_ptr internally (Mesh is value-semantic), so the static
+// keeps the GL resources alive for the lifetime of the process.
+static Mesh& cachedFullscreenTri() {
+    static Mesh s_tri = GenFullscreenTri();
+    return s_tri;
+}
+
 static void blitToTarget(Texture src, RenderTarget dst, Shader& shader) {
     if (dst.Valid()) {
         glBindFramebuffer(GL_FRAMEBUFFER, dst.GL());
@@ -303,7 +320,7 @@ static void blitToTarget(Texture src, RenderTarget dst, Shader& shader) {
     glBindTexture(GL_TEXTURE_2D, src.GL());
     shader.setInt("u_texture", 0);
     
-    Mesh tri = GenFullscreenTri();
+    const Mesh& tri = cachedFullscreenTri();
     glBindVertexArray(tri.GL());
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
@@ -328,17 +345,29 @@ void Blit(Texture src, RenderTarget dst, Material mat) {
     glBindTexture(GL_TEXTURE_2D, src.GL());
     shaderPtr->setInt("u_texture", 0);
     
-    Mesh tri = GenFullscreenTri();
+    const Mesh& tri = cachedFullscreenTri();
     glBindVertexArray(tri.GL());
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
 }
 
+// Lazily-created blit shader. Uses shared_ptr so that cleanup is controlled
+// and doesn't depend on static destruction order (GL context may already be
+// destroyed at that point).  The shader is created on first use and recreated
+// if it somehow becomes invalid.
+static Shader& getBlitShader() {
+    static Shader s_shader;
+    if (!s_shader.Valid()) {
+        s_shader = createBlitShader(s_blitVS, s_blitFS);
+    }
+    return s_shader;
+}
+
 void Blit(Texture src, RenderTarget dst) {
     if (!src.Valid()) return;
     
-    static Shader s_blitShader = createBlitShader(s_blitVS, s_blitFS);
-    blitToTarget(src, dst, s_blitShader);
+    Shader& shader = getBlitShader();
+    blitToTarget(src, dst, shader);
 }
 
 void BlitToScreen(Texture src) {
@@ -356,13 +385,13 @@ void BlitToScreen(Texture src, Rect dst_rect) {
     glViewport(static_cast<GLint>(dst_rect.x), static_cast<GLint>(dst_rect.y),
                static_cast<GLsizei>(dst_rect.w), static_cast<GLsizei>(dst_rect.h));
     
-    static Shader s_blitShader = createBlitShader(s_blitVS, s_blitFS);
-    s_blitShader.use();
+    static Shader& shader = getBlitShader();
+    shader.use();
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, src.GL());
-    s_blitShader.setInt("u_texture", 0);
+    shader.setInt("u_texture", 0);
     
-    Mesh tri = GenFullscreenTri();
+    const Mesh& tri = cachedFullscreenTri();
     glBindVertexArray(tri.GL());
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
@@ -395,7 +424,7 @@ void BlitMulti(std::initializer_list<Texture> inputs, RenderTarget dst, Material
         }
     }
     
-    Mesh tri = GenFullscreenTri();
+    const Mesh& tri = cachedFullscreenTri();
     glBindVertexArray(tri.GL());
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);

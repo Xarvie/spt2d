@@ -15,7 +15,7 @@
 namespace spt3d {
 
 static IPlatformHub* g_platform = nullptr;
-static std::unique_ptr<Graphics> g_graphics;
+static std::unique_ptr<gfx::Graphics> g_graphics;
 static std::unique_ptr<ThreadModel> g_threadModel;
 static RenderCommandExecutor g_renderExecutor;
 
@@ -29,7 +29,7 @@ public:
         auto windowInfo = GetPlatform()->getWindowSystem()->getWindowInfo();
         std::cout << "[Game] Window: " << windowInfo.windowWidth << "x" << windowInfo.windowHeight << std::endl;
 
-        g_graphics = std::make_unique<Graphics>();
+        g_graphics = std::make_unique<gfx::Graphics>();
         if (!g_graphics->initialize()) {
             std::cerr << "[Game] Failed to initialize graphics" << std::endl;
             return false;

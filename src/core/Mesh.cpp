@@ -284,8 +284,16 @@ Mesh MeshBuilder::Build() {
 
 void UpdatePos(Mesh m, const Vec3* data, int n, int off) {
     if (!m.Valid() || !data || n <= 0) return;
+    // Vertex layout is interleaved with stride = 14 floats:
+    //   [pos(3) normal(3) uv(2) color(4) tangent(4)]
+    // We must write each position individually at its stride offset.
+    constexpr int kStride = 14;
+    constexpr int kPosOffset = 0;  // position starts at float 0
     glBindBuffer(GL_ARRAY_BUFFER, m.p->vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, off * 14 * sizeof(float), n * 3 * sizeof(float), data);
+    for (int i = 0; i < n; ++i) {
+        GLintptr byteOff = static_cast<GLintptr>((off + i) * kStride + kPosOffset) * sizeof(float);
+        glBufferSubData(GL_ARRAY_BUFFER, byteOff, 3 * sizeof(float), &data[i]);
+    }
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
@@ -298,13 +306,15 @@ void UpdateIdx(Mesh m, const uint16_t* data, int n, int off) {
 
 void UpdateUV(Mesh m, const Vec2* data, int n, int off) {
     if (!m.Valid() || !data || n <= 0) return;
-    std::vector<float> uvData(n * 2);
-    for (int i = 0; i < n; ++i) {
-        uvData[i * 2 + 0] = data[i].x;
-        uvData[i * 2 + 1] = data[i].y;
-    }
+    // UV starts at float offset 6 within each vertex (after pos(3) + normal(3))
+    constexpr int kStride = 14;
+    constexpr int kUVOffset = 6;
     glBindBuffer(GL_ARRAY_BUFFER, m.p->vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, (off * 14 + 6) * sizeof(float), n * 2 * sizeof(float), uvData.data());
+    for (int i = 0; i < n; ++i) {
+        GLintptr byteOff = static_cast<GLintptr>((off + i) * kStride + kUVOffset) * sizeof(float);
+        float uv[2] = { data[i].x, data[i].y };
+        glBufferSubData(GL_ARRAY_BUFFER, byteOff, 2 * sizeof(float), uv);
+    }
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
@@ -315,9 +325,6 @@ Mesh GenPlane(float w, float h, int sx, int sz) {
     std::vector<Vec3> norm;
     std::vector<Vec2> uv;
     std::vector<uint16_t> idx;
-    
-    float hw = w * 0.5f;
-    float hh = h * 0.5f;
     
     for (int z = 0; z <= sz; ++z) {
         for (int x = 0; x <= sx; ++x) {

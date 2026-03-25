@@ -5,6 +5,7 @@
 #include <array>
 
 namespace spt3d {
+namespace gfx {
 
 // =============================================================================
 //  Default attribute bindings  (matches ShaderSources.h layout)
@@ -327,4 +328,5 @@ void GLShader::setMat4(std::string_view name, const float* matrix,
     if (loc != -1) glUniformMatrix4fv(loc, 1, transpose, matrix);
 }
 
+} // namespace gfx
 } // namespace spt3d

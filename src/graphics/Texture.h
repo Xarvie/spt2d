@@ -5,6 +5,7 @@
 #include <vector>
 
 namespace spt3d {
+namespace gfx {
 
 class Texture {
 public:
@@ -36,4 +37,5 @@ private:
     int m_channels = 0;
 };
 
-}
+} // namespace gfx
+} // namespace spt3d

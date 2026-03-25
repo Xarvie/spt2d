@@ -3,6 +3,7 @@
 #include "../glad/glad.h"
 
 namespace spt3d {
+namespace gfx {
 
 enum class BlendMode {
     None,
@@ -51,4 +52,5 @@ inline void applyBlendMode(BlendMode mode) {
     }
 }
 
-}
+} // namespace gfx
+} // namespace spt3d

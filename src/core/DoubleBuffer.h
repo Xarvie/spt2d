@@ -10,6 +10,8 @@ namespace spt3d {
 // =============================================================================
 //  DoubleBuffer<T>
 //
+//  DEPRECATED — Use TripleBuffer<T> instead for concurrent producer/consumer.
+//
 //  A simple ping-pong buffer for LOCK-STEP producer/consumer patterns where
 //  exactly one side runs at a time (e.g. single-threaded loop, or an explicit
 //  synchronisation barrier between the two sides).
@@ -24,7 +26,11 @@ namespace spt3d {
 //      (barrier, semaphore, join, …) between each write→read cycle.
 // =============================================================================
 template <typename T>
-class DoubleBuffer {
+class
+#if __cplusplus >= 201402L
+    [[deprecated("Use TripleBuffer<T> for concurrent producer/consumer patterns")]]
+#endif
+DoubleBuffer {
 public:
     static_assert(std::is_default_constructible<T>::value,
                   "DoubleBuffer<T>: T must be default-constructible");

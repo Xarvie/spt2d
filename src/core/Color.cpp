@@ -57,12 +57,13 @@ Vec3 ToHSV(Color c) {
     return Vec3(h, s, v);
 }
 
-Color FromHSV(float h, float s, float v) {
+Color FromHSV(float h, float s, float v, float a) {
     h = std::fmod(h, 360.0f);
     if (h < 0) h += 360.0f;
     
     s = std::clamp(s, 0.0f, 1.0f);
     v = std::clamp(v, 0.0f, 1.0f);
+    a = std::clamp(a, 0.0f, 1.0f);
     
     float c = v * s;
     float x = c * (1.0f - std::abs(std::fmod(h / 60.0f, 2.0f) - 1.0f));
@@ -80,7 +81,7 @@ Color FromHSV(float h, float s, float v) {
         static_cast<uint8_t>((r + m) * 255.0f),
         static_cast<uint8_t>((g + m) * 255.0f),
         static_cast<uint8_t>((b + m) * 255.0f),
-        255
+        static_cast<uint8_t>(a * 255.0f)
     };
 }
 

@@ -6,6 +6,7 @@
 #include <cassert>
 
 namespace spt3d {
+namespace gfx {
 
 const float Graphics::kIdentityMVP[16] = {
     1.0f, 0.0f, 0.0f, 0.0f,
@@ -254,7 +255,11 @@ void Graphics::flushTextures() {
     m_currentTexture = 0;
 }
 
-void Graphics::recordTriangles(GameWork&             work,
+// ---------------------------------------------------------------------------
+// Command recording — writes into spt3d::GameWork
+// ---------------------------------------------------------------------------
+
+void Graphics::recordTriangles(spt3d::GameWork&    work,
                                 const VertexPosColor* verts,
                                 int                   count,
                                 const float*          mvp16,
@@ -282,7 +287,7 @@ void Graphics::recordTriangles(GameWork&             work,
 
     const uint8_t* poolBase = work.uniformPool.data();
 
-    DrawBatchCmd cmd{};
+    spt3d::DrawBatchCmd cmd{};
     cmd.program       = program();
     cmd.vao           = m_vao;
     cmd.vbo           = m_vbo;
@@ -294,10 +299,10 @@ void Graphics::recordTriangles(GameWork&             work,
     cmd.poolBase      = poolBase;
 
     work.renderCommands.push_back(
-        RenderCommand::create(cmd, &Graphics::execDrawBatch, sortKey));
+        spt3d::RenderCommand::create(cmd, &Graphics::execDrawBatch, sortKey, spt3d::DrawBatchCmd::kTypeId));
 }
 
-void Graphics::recordTriangle(GameWork& work,
+void Graphics::recordTriangle(spt3d::GameWork& work,
                                float x1, float y1, float r1, float g1, float b1,
                                float x2, float y2, float r2, float g2, float b2,
                                float x3, float y3, float r3, float g3, float b3,
@@ -311,7 +316,7 @@ void Graphics::recordTriangle(GameWork& work,
     recordTriangles(work, verts, 3, mvp16, sortKey);
 }
 
-void Graphics::recordTexture(GameWork& work, GLuint texture,
+void Graphics::recordTexture(spt3d::GameWork& work, GLuint texture,
                               float x, float y, float w, float h,
                               const float* mvp16,
                               uint64_t sortKey) {
@@ -345,7 +350,7 @@ void Graphics::recordTexture(GameWork& work, GLuint texture,
 
     const uint8_t* poolBase = work.uniformPool.data();
 
-    DrawTextureCmd cmd{};
+    spt3d::DrawTextureCmd cmd{};
     cmd.program       = textureProgram();
     cmd.vao           = m_texVao;
     cmd.vbo           = m_texVbo;
@@ -359,11 +364,15 @@ void Graphics::recordTexture(GameWork& work, GLuint texture,
     cmd.poolBase      = poolBase;
 
     work.renderCommands.push_back(
-        RenderCommand::create(cmd, &Graphics::execDrawTexture, sortKey));
+        spt3d::RenderCommand::create(cmd, &Graphics::execDrawTexture, sortKey, spt3d::DrawTextureCmd::kTypeId));
 }
 
+// ---------------------------------------------------------------------------
+// Static execute callbacks — invoked by RenderCommandExecutor on render thread
+// ---------------------------------------------------------------------------
+
 void Graphics::execDrawBatch(const void* payload) noexcept {
-    const auto& cmd = *static_cast<const DrawBatchCmd*>(payload);
+    const auto& cmd = *static_cast<const spt3d::DrawBatchCmd*>(payload);
 
     const auto* verts = reinterpret_cast<const VertexPosColor*>(
                             cmd.poolBase + cmd.vertexByteOff);
@@ -387,7 +396,7 @@ void Graphics::execDrawBatch(const void* payload) noexcept {
 }
 
 void Graphics::execDrawTexture(const void* payload) noexcept {
-    const auto& cmd = *static_cast<const DrawTextureCmd*>(payload);
+    const auto& cmd = *static_cast<const spt3d::DrawTextureCmd*>(payload);
 
     const auto* verts = reinterpret_cast<const VertexPosColorTex*>(
                             cmd.poolBase + cmd.vertexByteOff);
@@ -416,4 +425,5 @@ void Graphics::execDrawTexture(const void* payload) noexcept {
     glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(cmd.vertexCount));
 }
 
+} // namespace gfx
 } // namespace spt3d

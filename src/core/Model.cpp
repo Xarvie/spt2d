@@ -1,6 +1,7 @@
 #include "../Spt3D.h"
 
 #include <vector>
+#include <limits>
 
 namespace spt3d {
 
@@ -42,10 +43,23 @@ void Model::SetMat(int mesh_idx, Material mat) {
 }
 
 AABB Model::Bounds() const {
-    AABB bounds;
-    bounds.min = Vec3(0);
-    bounds.max = Vec3(0);
-    return bounds;
+    if (!p || p->parts.empty()) return AABB{{0,0,0},{0,0,0}};
+    
+    AABB bounds = { Vec3(std::numeric_limits<float>::max()),
+                    Vec3(std::numeric_limits<float>::lowest()) };
+    bool any = false;
+    for (const auto& part : p->parts) {
+        if (part.mesh.Valid()) {
+            AABB mb = part.mesh.Bounds();
+            if (!any) {
+                bounds = mb;
+                any = true;
+            } else {
+                bounds = AABBMerge(bounds, mb);
+            }
+        }
+    }
+    return any ? bounds : AABB{{0,0,0},{0,0,0}};
 }
 
 Model LoadModel(std::string_view url, Callback cb) {

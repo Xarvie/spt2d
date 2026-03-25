@@ -111,11 +111,13 @@ void SortDrawList(DrawList dl, SortMode mode, const Vec3& camPos) {
         case SortMode::FrontToBack: {
             auto& items = dl.p->items;
             std::sort(items.begin(), items.end(), [&camPos](const DrawItem& a, const DrawItem& b) {
-                Vec3 posA = M4Point(a.transform, Vec3(0, 0, 0));
-                Vec3 posB = M4Point(b.transform, Vec3(0, 0, 0));
-                float distA = glm::length(posA - camPos);
-                float distB = glm::length(posB - camPos);
-                return distA < distB;
+                // Extract translation directly from column 3 (cheaper than M4Point with zero)
+                Vec3 posA = Vec3(a.transform[3]);
+                Vec3 posB = Vec3(b.transform[3]);
+                // Use squared distance — avoids sqrt, preserves comparison order
+                float dist2A = glm::dot(posA - camPos, posA - camPos);
+                float dist2B = glm::dot(posB - camPos, posB - camPos);
+                return dist2A < dist2B;
             });
             break;
         }
@@ -123,11 +125,11 @@ void SortDrawList(DrawList dl, SortMode mode, const Vec3& camPos) {
         case SortMode::BackToFront: {
             auto& items = dl.p->items;
             std::sort(items.begin(), items.end(), [&camPos](const DrawItem& a, const DrawItem& b) {
-                Vec3 posA = M4Point(a.transform, Vec3(0, 0, 0));
-                Vec3 posB = M4Point(b.transform, Vec3(0, 0, 0));
-                float distA = glm::length(posA - camPos);
-                float distB = glm::length(posB - camPos);
-                return distA > distB;
+                Vec3 posA = Vec3(a.transform[3]);
+                Vec3 posB = Vec3(b.transform[3]);
+                float dist2A = glm::dot(posA - camPos, posA - camPos);
+                float dist2B = glm::dot(posB - camPos, posB - camPos);
+                return dist2A > dist2B;
             });
             break;
         }

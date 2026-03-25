@@ -325,8 +325,22 @@ private:
     // -------------------------------------------------------------------------
 
     uint32_t allocId() noexcept {
+        // On overflow the counter wraps to 0; skip it (reserved as invalid).
+        // Also skip any id that is still in the pending map to avoid
+        // silently overwriting a live callback after ~4 billion allocations.
         uint32_t id = ++m_nextId;
         if (id == kInvalidId) id = ++m_nextId;   // skip 0
+
+        // Collision check — only relevant after full uint32 wrap-around.
+        // In practice this loop almost never executes; if it does it will
+        // terminate quickly because the pending map is small.
+        {
+            std::lock_guard<std::mutex> lk(m_mutex);
+            while (m_entries.count(id)) {
+                id = ++m_nextId;
+                if (id == kInvalidId) id = ++m_nextId;
+            }
+        }
         return id;
     }
 

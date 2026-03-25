@@ -182,9 +182,11 @@ void Execute(Pipeline pipe, DrawList dl, const Camera3D& cam) {
         
         switch (stage.type) {
             case StageType::Geometry: {
+                // TODO(phase4): draw DrawList items matching pass_name/tag
                 break;
             }
             case StageType::Blit: {
+                // TODO(phase4): fullscreen blit with blit_material + blit_inputs
                 break;
             }
             case StageType::Custom: {
@@ -210,9 +212,11 @@ void Execute(Pipeline pipe, DrawList dl, const Camera2D& cam) {
         
         switch (stage.type) {
             case StageType::Geometry: {
+                // TODO(phase4): draw DrawList items matching pass_name/tag
                 break;
             }
             case StageType::Blit: {
+                // TODO(phase4): fullscreen blit with blit_material + blit_inputs
                 break;
             }
             case StageType::Custom: {

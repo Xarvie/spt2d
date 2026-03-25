@@ -3,6 +3,7 @@
 #include <cstdint>
 
 namespace spt3d {
+namespace gfx {
 
 struct Color {
     float r, g, b, a;
@@ -60,4 +61,5 @@ struct Color {
     }
 };
 
-}
+} // namespace gfx
+} // namespace spt3d

@@ -8,6 +8,7 @@
 #include <vector>
 
 namespace spt3d {
+namespace gfx {
 
 class Canvas {
 public:
@@ -112,4 +113,5 @@ private:
     bool m_inFrame = false;
 };
 
-}
+} // namespace gfx
+} // namespace spt3d

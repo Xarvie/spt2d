@@ -1,9 +1,11 @@
 #include "Texture.h"
 
-#define STB_IMAGE_IMPLEMENTATION
+// NOTE: STB_IMAGE_IMPLEMENTATION is defined in core/Texture.cpp.
+// We only need the declarations here.
 #include "../../libs/stb/stb_image.h"
 
 namespace spt3d {
+namespace gfx {
 
 Texture::Texture(Texture&& other) noexcept
     : m_pixelData(std::move(other.m_pixelData))
@@ -92,4 +94,5 @@ void Texture::cleanup() {
     m_channels = 0;
 }
 
-}
+} // namespace gfx
+} // namespace spt3d

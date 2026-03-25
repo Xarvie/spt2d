@@ -2,13 +2,18 @@
 
 #include "../glad/glad.h"
 #include "Shader.h"
-#include "GameWork.h"
+#include "../core/GameWork.h"
 
 #include <memory>
 #include <cstdint>
 #include <type_traits>
 
 namespace spt3d {
+namespace gfx {
+
+// ============================================================================
+// Vertex formats for the 2D immediate-mode renderer
+// ============================================================================
 
 struct VertexPosColor {
     float x, y;
@@ -23,8 +28,15 @@ struct VertexPosColorTex {
 };
 static_assert(std::is_trivially_copyable<VertexPosColorTex>::value);
 
+} // namespace gfx
+
+
+// ============================================================================
+// RenderCommand payload structs — must live in spt3d (same as RenderCommand)
+// ============================================================================
 
 struct DrawBatchCmd {
+    static constexpr uint16_t kTypeId = 1;
     GLuint          program;
     GLuint          vao;
     GLuint          vbo;
@@ -42,6 +54,7 @@ static_assert(std::is_trivially_copyable<DrawBatchCmd>::value,
 
 
 struct DrawTextureCmd {
+    static constexpr uint16_t kTypeId = 2;
     GLuint          program;
     GLuint          vao;
     GLuint          vbo;
@@ -60,6 +73,11 @@ static_assert(std::is_trivially_copyable<DrawTextureCmd>::value,
               "DrawTextureCmd must be trivially copyable");
 
 
+namespace gfx {
+
+// ============================================================================
+// Graphics — 2D immediate-mode renderer + command recording for GameWork
+// ============================================================================
 class Graphics {
 public:
     static constexpr int kMaxImmediateVertices = 4096;
@@ -98,20 +116,21 @@ public:
     void flush();
     void flushTextures();
 
-    void recordTriangles(GameWork&             work,
+    // Command recording for GameWork (multi-threaded path)
+    void recordTriangles(spt3d::GameWork&    work,
                          const VertexPosColor* verts,
                          int                   count,
                          const float*          mvp16   = nullptr,
                          uint64_t              sortKey = 0);
 
-    void recordTriangle(GameWork& work,
+    void recordTriangle(spt3d::GameWork& work,
                         float x1, float y1, float r1, float g1, float b1,
                         float x2, float y2, float r2, float g2, float b2,
                         float x3, float y3, float r3, float g3, float b3,
                         const float* mvp16  = nullptr,
                         uint64_t     sortKey = 0);
 
-    void recordTexture(GameWork& work, GLuint texture,
+    void recordTexture(spt3d::GameWork& work, GLuint texture,
                        float x, float y, float w, float h,
                        const float* mvp16 = nullptr,
                        uint64_t sortKey = 0);
@@ -131,13 +150,13 @@ private:
     static void execDrawBatch(const void* payload) noexcept;
     static void execDrawTexture(const void* payload) noexcept;
 
-    GLuint                  m_vao = 0;
-    GLuint                  m_vbo = 0;
-    std::unique_ptr<GLShader> m_basicShader;
+    GLuint                      m_vao = 0;
+    GLuint                      m_vbo = 0;
+    std::unique_ptr<GLShader>   m_basicShader;
 
-    GLuint                  m_texVao = 0;
-    GLuint                  m_texVbo = 0;
-    std::unique_ptr<GLShader> m_textureShader;
+    GLuint                      m_texVao = 0;
+    GLuint                      m_texVbo = 0;
+    std::unique_ptr<GLShader>   m_textureShader;
 
     GLint m_mvpUniformLoc = -1;
     GLint m_texMvpUniformLoc = -1;
@@ -160,4 +179,5 @@ private:
     bool m_initialized = false;
 };
 
+} // namespace gfx
 } // namespace spt3d

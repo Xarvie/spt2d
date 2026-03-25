@@ -1,7 +1,8 @@
 #pragma once
 
-#include "GameWork.h"
+#include "../core/GameWork.h"
 #include "../glad/glad.h"
+#include "Graphics.h"
 
 #include <vector>
 #include <numeric>
@@ -187,8 +188,24 @@ public:
                        work.viewport.w, work.viewport.h);
         }
 
-        const auto& cmds = work.renderCommands;
+        auto& cmds = const_cast<std::vector<RenderCommand>&>(work.renderCommands);
         if (cmds.empty()) return;
+
+        // --- Patch poolBase pointers ---
+        // During recording, the LinearAllocator may have reallocated its
+        // internal buffer, invalidating poolBase pointers stored in earlier
+        // commands.  Now that recording is finished, the buffer is stable.
+        // We overwrite every command's poolBase with the final base address.
+        const uint8_t* finalBase = work.uniformPool.data();
+        for (auto& cmd : cmds) {
+            if (cmd.typeId == DrawBatchCmd::kTypeId) {
+                auto* p = reinterpret_cast<DrawBatchCmd*>(cmd.payload);
+                p->poolBase = finalBase;
+            } else if (cmd.typeId == DrawTextureCmd::kTypeId) {
+                auto* p = reinterpret_cast<DrawTextureCmd*>(cmd.payload);
+                p->poolBase = finalBase;
+            }
+        }
 
         // Build a sort-index array.  Reusing the member vector avoids a heap
         // allocation every frame once the high-water capacity is reached.

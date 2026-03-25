@@ -41,7 +41,7 @@ public:
     bool loadFromMemory(const std::vector<uint8_t>& data);
     void uploadToGPU();
 
-    Texture* getTexture() const { return m_texture.get(); }
+    gfx::Texture* getTexture() const { return m_texture.get(); }
     GLuint getGLTexture() const { return m_texture ? m_texture->getID() : 0; }
     int getWidth() const { return m_texture ? m_texture->getWidth() : 0; }
     int getHeight() const { return m_texture ? m_texture->getHeight() : 0; }
@@ -52,7 +52,7 @@ private:
     std::string m_logicAddress;
     std::string m_physicalPath;
     std::atomic<ResState> m_state{ResState::Unloaded};
-    std::unique_ptr<Texture> m_texture;
+    std::unique_ptr<gfx::Texture> m_texture;
 
     Config m_config;
     std::mutex m_configMutex;

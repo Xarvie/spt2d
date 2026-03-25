@@ -5,6 +5,7 @@
 #include "../vfs/VirtualFileSystem.h"
 
 #include <chrono>
+#include <atomic>
 #include <iostream>
 #include <cassert>
 #include <thread>
@@ -24,14 +25,19 @@ static struct {
     
     TimePoint startTime;
     TimePoint lastFrameTime;
-    float deltaTime = 0.0f;
-    double totalTime = 0.0;
-    int fps = 0;
+
+    // --- Timing fields: written by the frame-pump thread, read from any thread.
+    // Using atomics avoids data races without a heavy mutex on every Delta()/Time() call.
+    std::atomic<float>  deltaTime{0.0f};
+    std::atomic<double> totalTime{0.0};
+    std::atomic<int>    fps{0};
+
+    // --- Frame-pump internal (only accessed by the pumping thread, not shared)
     int frameCount = 0;
     float fpsAccum = 0.0f;
     
     bool initialized = false;
-    bool shouldQuit = false;
+    std::atomic<bool> shouldQuit{false};
 } g_state;
 
 void SetThreadConfig(const ThreadConfig& cfg) {
@@ -156,18 +162,7 @@ void Run() {
         
         g_state.threadModel->onFrameEnd();
         
-        auto now = Clock::now();
-        g_state.deltaTime = std::chrono::duration<float>(now - g_state.lastFrameTime).count();
-        g_state.lastFrameTime = now;
-        g_state.totalTime += g_state.deltaTime;
-        
-        g_state.frameCount++;
-        g_state.fpsAccum += g_state.deltaTime;
-        if (g_state.fpsAccum >= 1.0f) {
-            g_state.fps = g_state.frameCount;
-            g_state.frameCount = 0;
-            g_state.fpsAccum = 0.0f;
-        }
+//        updateFrameTiming();
     }
 }
 
@@ -193,18 +188,7 @@ void Run(std::function<void()> tick, int target_fps) {
             }
         }
         
-        auto now = Clock::now();
-        g_state.deltaTime = std::chrono::duration<float>(now - g_state.lastFrameTime).count();
-        g_state.lastFrameTime = now;
-        g_state.totalTime += g_state.deltaTime;
-        
-        g_state.frameCount++;
-        g_state.fpsAccum += g_state.deltaTime;
-        if (g_state.fpsAccum >= 1.0f) {
-            g_state.fps = g_state.frameCount;
-            g_state.frameCount = 0;
-            g_state.fpsAccum = 0.0f;
-        }
+//        updateFrameTiming();
         
         if (frameDuration.count() > 0) {
             auto elapsed = Clock::now() - frameStart;
@@ -238,38 +222,49 @@ void BeginFrame() {
     g_state.lastFrameTime = Clock::now();
 }
 
-void EndFrame() {
+// Helper: updates the shared timing atomics from the frame-pump thread.
+// lastFrameTime, frameCount, fpsAccum are frame-pump-private (non-atomic).
+static void updateFrameTiming() {
     auto now = Clock::now();
-    g_state.deltaTime = std::chrono::duration<float>(now - g_state.lastFrameTime).count();
-    g_state.totalTime += g_state.deltaTime;
-    
+    float dt = std::chrono::duration<float>(now - g_state.lastFrameTime).count();
+    g_state.lastFrameTime = now;
+
+    g_state.deltaTime.store(dt, std::memory_order_relaxed);
+    g_state.totalTime.store(g_state.totalTime.load(std::memory_order_relaxed)
+                            + static_cast<double>(dt),
+                            std::memory_order_relaxed);
+
     g_state.frameCount++;
-    g_state.fpsAccum += g_state.deltaTime;
+    g_state.fpsAccum += dt;
     if (g_state.fpsAccum >= 1.0f) {
-        g_state.fps = g_state.frameCount;
+        g_state.fps.store(g_state.frameCount, std::memory_order_relaxed);
         g_state.frameCount = 0;
         g_state.fpsAccum = 0.0f;
     }
 }
 
+void EndFrame() {
+    updateFrameTiming();
+}
+
 void Quit() {
-    g_state.shouldQuit = true;
+    g_state.shouldQuit.store(true, std::memory_order_relaxed);
 }
 
 bool ShouldQuit() {
-    return g_state.shouldQuit;
+    return g_state.shouldQuit.load(std::memory_order_relaxed);
 }
 
 float Delta() {
-    return g_state.deltaTime;
+    return g_state.deltaTime.load(std::memory_order_relaxed);
 }
 
 double Time() {
-    return g_state.totalTime;
+    return g_state.totalTime.load(std::memory_order_relaxed);
 }
 
 int FPS() {
-    return g_state.fps;
+    return g_state.fps.load(std::memory_order_relaxed);
 }
 
 void SetTargetFPS(int fps) {

@@ -1,14 +1,15 @@
 #pragma once
 
 namespace spt3d {
+namespace gfx {
 
 #if defined(__APPLE__)
-#define SPT_GLSL_VERSION "#version 410 core\n"
+#define SPT_GFX_GLSL_VERSION "#version 410 core\n"
 #else
-#define SPT_GLSL_VERSION "#version 300 es\nprecision mediump float;\n"
+#define SPT_GFX_GLSL_VERSION "#version 300 es\nprecision mediump float;\n"
 #endif
 
-const char* const SHADER_VS_BASIC = SPT_GLSL_VERSION R"(
+inline const char* const SHADER_VS_BASIC = SPT_GFX_GLSL_VERSION R"(
     in vec2 a_position;
     in vec4 a_color;
 
@@ -22,7 +23,7 @@ const char* const SHADER_VS_BASIC = SPT_GLSL_VERSION R"(
     }
 )";
 
-const char* const SHADER_FS_BASIC = SPT_GLSL_VERSION R"(
+inline const char* const SHADER_FS_BASIC = SPT_GFX_GLSL_VERSION R"(
     in vec4 v_color;
     out vec4 fragColor;
 
@@ -31,7 +32,7 @@ const char* const SHADER_FS_BASIC = SPT_GLSL_VERSION R"(
     }
 )";
 
-const char* const SHADER_VS_TEXTURE = SPT_GLSL_VERSION R"(
+inline const char* const SHADER_VS_TEXTURE = SPT_GFX_GLSL_VERSION R"(
     in vec2 a_position;
     in vec2 a_texcoord;
     in vec4 a_color;
@@ -48,7 +49,7 @@ const char* const SHADER_VS_TEXTURE = SPT_GLSL_VERSION R"(
     }
 )";
 
-const char* const SHADER_FS_TEXTURE = SPT_GLSL_VERSION R"(
+inline const char* const SHADER_FS_TEXTURE = SPT_GFX_GLSL_VERSION R"(
     uniform sampler2D u_texture;
 
     in vec2 v_texcoord;
@@ -60,4 +61,5 @@ const char* const SHADER_FS_TEXTURE = SPT_GLSL_VERSION R"(
     }
 )";
 
-}
+} // namespace gfx
+} // namespace spt3d

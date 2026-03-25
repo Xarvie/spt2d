@@ -42,6 +42,7 @@ set(SPT3D_SOURCES
     ${SRC_DIR}/core/Random.cpp
     ${SRC_DIR}/core/Input.cpp
     ${SRC_DIR}/core/Utility.cpp
+    ${SRC_DIR}/core/Audio.cpp
     ${SRC_DIR}/graphics/Shader.cpp
     ${SRC_DIR}/vfs/VirtualFileSystem.cpp
     ${SRC_DIR}/vfs/VFS.cpp
