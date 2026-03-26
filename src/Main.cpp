@@ -92,10 +92,10 @@ public:
         work.setScreenSize(m_windowWidth, m_windowHeight);
         work.setViewport(0, 0, m_windowWidth, m_windowHeight);
 
-        m_camera.position = Vec3(0.0f, 2.0f, 2.0f);
+        m_camera.position = Vec3(0.0f, 2.0f, -5.0f);
         m_camera.target = Vec3(0.0f, 0.0f, 0.0f);
         m_camera.up = Vec3(0.0f, 1.0f, 0.0f);
-        m_camera.fov = 90.0f;
+        m_camera.fov = 60.0f;
         m_camera.near_clip = 0.1f;
         m_camera.far_clip = 100.0f;
         m_camera.ortho = false;
@@ -106,23 +106,33 @@ public:
         buildClearCommand(work, kGLColorBufferBit | kGLDepthBufferBit,
                           0.1f, 0.1f, 0.2f, 1.0f, 1.0f, 0);
 
-        float angle = m_time * 0.5f;
-        Mat4 model = glm::rotate(Mat4(1.0f), angle, Vec3(0.0f, 1.0f, 0.0f));
+        m_drawList.clear();
 
         MaterialSnapshot mat;
         mat.shader = m_shader;
-        mat.setVec4("u_color", Vec4(1.0f, 1.0f, 1.0f, 1.0f));
-        TexHandle tex = m_texture.value ? m_texture : g_gpu->whiteTex();
-        mat.setTexture("u_texture", tex, 0);
+        mat.setTexture("u_texture", g_gpu->whiteTex(), 0);
 
-        m_drawList.clear();
-        m_drawList.push(m_cubeMesh, mat, model);
+        float angle = m_time * 0.5f;
+        
+        Mat4 cubeModel = glm::translate(Mat4(1.0f), Vec3(-1.5f, 0.0f, 0.0f)) *
+                         glm::rotate(Mat4(1.0f), angle, Vec3(0.0f, 1.0f, 0.0f));
+        mat.setVec4("u_color", Vec4(0.2f, 0.5f, 1.0f, 1.0f));
+        m_drawList.push(m_cubeMesh, mat, cubeModel);
+
+        Mat4 triModel = glm::translate(Mat4(1.0f), Vec3(1.5f, 0.0f, 0.0f)) *
+                        glm::rotate(Mat4(1.0f), angle, Vec3(0.0f, 0.0f, 1.0f));
+        mat.setVec4("u_color", Vec4(1.0f, 0.5f, 0.2f, 1.0f));
+        m_drawList.push(m_triangleMesh, mat, triModel);
+        
         m_drawList.emitCommands(work, SortMode::FrontToBack, m_camera.position);
     }
 
     void onShutdown() override {
         std::cout << "[Game] Shutting down..." << std::endl;
         m_drawList.clear();
+        if (g_gpu && m_triangleMesh.value != 0) {
+            g_gpu->destroyMesh(m_triangleMesh);
+        }
         if (g_gpu && m_cubeMesh.value != 0) {
             g_gpu->destroyMesh(m_cubeMesh);
         }
@@ -148,6 +158,13 @@ private:
         ShaderLibrary::Instance().initialize(g_gpu.get());
         TextureLoader::Instance().initialize(g_gpu.get());
 
+        MeshData triData = GenTriangleData(1.0f);
+        m_triangleMesh = g_gpu->createMesh(triData);
+        if (m_triangleMesh.value == 0) {
+            std::cerr << "[Game] Failed to create triangle mesh" << std::endl;
+            return false;
+        }
+
         MeshData cubeData = GenCubeData(1.0f, 1.0f, 1.0f);
         m_cubeMesh = g_gpu->createMesh(cubeData);
         if (m_cubeMesh.value == 0) {
@@ -161,21 +178,6 @@ private:
             return false;
         }
 
-        TextureLoader::Instance().loadAsync(
-#ifdef __WXGAME__
-            "package://resources/textures/container2.png",
-#else
-            "file://resources/textures/container2.png",
-#endif
-            [this](const TextureLoadResult& result) {
-                if (result.success) {
-                    m_texture = result.handle;
-                    std::cout << "[Game] Texture loaded: " << result.path << std::endl;
-                } else {
-                    std::cerr << "[Game] Failed to load texture: " << result.error << std::endl;
-                }
-            }, true);
-
         std::cout << "[Game] GPU resources created" << std::endl;
         return true;
     }
@@ -186,9 +188,9 @@ private:
     float m_time = 0.0f;
     float m_dt = 0.0f;
 
+    MeshHandle m_triangleMesh;
     MeshHandle m_cubeMesh;
     ShaderHandle m_shader;
-    TexHandle m_texture;
     Camera3D m_camera;
     DrawList m_drawList;
 };

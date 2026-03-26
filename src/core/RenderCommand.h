@@ -89,6 +89,20 @@ struct DrawMeshCmd {
 static_assert(sizeof(DrawMeshCmd) <= RenderCommand::kPayloadSize);
 static_assert(std::is_trivially_copyable<DrawMeshCmd>::value);
 
+/// Draw a mesh with instancing.
+/// Groups multiple instances of the same mesh+shader into one draw call.
+struct DrawInstancedCmd {
+    static constexpr uint16_t kTypeId = 2;
+    MeshHandle   mesh;
+    ShaderHandle shader;
+    uint32_t     uniformsOffset;      // byte offset into uniformPool → MaterialUniforms
+    uint32_t     instanceDataOffset;  // byte offset into uniformPool → Mat4[] instance matrices
+    int          instanceCount;       // number of instances
+    uint32_t     _reserved = 0;
+};
+static_assert(sizeof(DrawInstancedCmd) <= RenderCommand::kPayloadSize);
+static_assert(std::is_trivially_copyable<DrawInstancedCmd>::value);
+
 /// Clear render target.
 struct ClearCmd {
     static constexpr uint16_t kTypeId = 10;

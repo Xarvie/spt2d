@@ -116,5 +116,6 @@ MeshData GenConeData(float r, float h, int slices = 16);
 MeshData GenTorusData(float r, float tube, int rseg = 24, int tseg = 12);
 MeshData GenCapsuleData(float r, float h, int rings = 8, int slices = 16);
 MeshData GenFullscreenTriData();
+MeshData GenTriangleData(float size);
 
 } // namespace spt3d

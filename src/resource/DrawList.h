@@ -83,6 +83,17 @@ public:
                       uint8_t layer = 128,
                       std::string_view passName = "FORWARD") const;
 
+    /// Serialize items with instanced batching.
+    /// Groups items with same mesh+shader into single draw call.
+    /// Requires shader to support instanced attributes (a_instanceMatrix[0-3]).
+    void emitCommandsInstanced(GameWork& work,
+                               SortMode sortMode = SortMode::FrontToBack,
+                               Vec3 cameraPos = Vec3(0),
+                               uint32_t tagInclude = 0,
+                               uint32_t tagExclude = 0,
+                               uint8_t layer = 128,
+                               std::string_view passName = "FORWARD") const;
+
 private:
     std::vector<DrawItem> m_items;
 };

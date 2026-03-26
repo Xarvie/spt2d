@@ -178,6 +178,27 @@ public:
     void drawIndexed(int indexCount);
     void drawArrays(int vertexCount);
     void drawFullscreenTriangle();      // uses internal VAO
+    
+    // ── Instanced draw calls ────────────────────────────────────────────
+    
+    void drawIndexedInstanced(int indexCount, int instanceCount);
+    void drawArraysInstanced(int vertexCount, int instanceCount);
+    
+    // ── Instance buffer ─────────────────────────────────────────────────
+    
+    /// Set per-instance data for instanced rendering.
+    /// @param mesh The mesh to attach instance data to
+    /// @param data Pointer to instance data
+    /// @param size Size of instance data in bytes
+    /// @param stride Stride of each instance's data
+    void setInstanceBuffer(MeshHandle mesh, const void* data, size_t size, size_t stride);
+    
+    // ── MRT (Multiple Render Targets) ───────────────────────────────────
+    
+    /// Set which color attachments to draw to.
+    /// @param count Number of active draw buffers
+    /// @param attachments Array of attachment indices (0 = GL_COLOR_ATTACHMENT0)
+    void drawBuffers(int count, const int* attachments);
 
     // ── Batch resource command processing ───────────────────────────────
 

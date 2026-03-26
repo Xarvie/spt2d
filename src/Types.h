@@ -14,9 +14,6 @@
 #include <optional>
 #include <vector>
 
-#define GLM_FORCE_CTOR_INIT
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_FORCE_LEFT_HANDED
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -55,9 +52,9 @@ inline Mat4 M4Mul(Mat4 a, Mat4 b){ return a * b; }
 inline Mat4 M4TRS(Vec3 t, Quat r, Vec3 s) {
     return glm::translate(Mat4(1.0f), t) * glm::mat4_cast(r) * glm::scale(Mat4(1.0f), s);
 }
-inline Mat4 M4LookAt(Vec3 eye, Vec3 target, Vec3 up) { return glm::lookAtLH(eye, target, up); }
-inline Mat4 M4Persp(float fovy, float aspect, float zn, float zf) { return glm::perspectiveLH_ZO(fovy, aspect, zn, zf); }
-inline Mat4 M4Ortho(float l, float r, float b, float t, float zn, float zf) { return glm::orthoLH_ZO(l, r, b, t, zn, zf); }
+inline Mat4 M4LookAt(Vec3 eye, Vec3 target, Vec3 up) { return glm::lookAt(eye, target, up); }
+inline Mat4 M4Persp(float fovy, float aspect, float zn, float zf) { return glm::perspective(fovy, aspect, zn, zf); }
+inline Mat4 M4Ortho(float l, float r, float b, float t, float zn, float zf) { return glm::ortho(l, r, b, t, zn, zf); }
 inline Mat4 M4Inv(Mat4 m)        { return glm::inverse(m); }
 inline Mat4 M4Transpose(Mat4 m)  { return glm::transpose(m); }
 inline Mat3 M4ToMat3(Mat4 m)     { return Mat3(m); }

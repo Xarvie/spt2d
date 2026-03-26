@@ -133,6 +133,14 @@ struct GameWork {
         return uniformPool.offsetOf(p);
     }
 
+    /// Allocate an array of elements and return offset.
+    uint32_t allocUniformArray(const void* data, std::size_t size) {
+        void* p = uniformPool.alloc(size, 8);
+        if (!p) return UINT32_MAX;
+        std::memcpy(p, data, size);
+        return uniformPool.offsetOf(p);
+    }
+
     /// Submit a resource creation/destruction command.
     void submitResource(ResourceCommand cmd) {
         resourceCommands.push_back(cmd);

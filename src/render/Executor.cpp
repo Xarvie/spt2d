@@ -126,10 +126,55 @@ void execDrawMesh(const void* payload, const uint8_t* poolBase) noexcept {
         gpu.setUniformMat4(cmd->shader, "u_model", *model);
     }
 
+    GLenum err = glGetError();
+    if (err != GL_NO_ERROR) {
+        std::cerr << "[Executor] WebGL error before draw: " << err << std::endl;
+    }
+
     if (gpu.meshIsIndexed(cmd->mesh)) {
         gpu.drawIndexed(0);
     } else {
         gpu.drawArrays(0);
+    }
+
+    err = glGetError();
+    if (err != GL_NO_ERROR) {
+        std::cerr << "[Executor] WebGL error after draw: " << err << std::endl;
+    }
+}
+
+void execDrawMeshInstanced(const void* payload, const uint8_t* poolBase) noexcept {
+    if (!g_gpuDevice) return;
+    GPUDevice& gpu = *g_gpuDevice;
+
+    const DrawInstancedCmd* cmd = static_cast<const DrawInstancedCmd*>(payload);
+
+    gpu.bindMesh(cmd->mesh);
+    gpu.useShader(cmd->shader);
+
+    if (g_frameData) {
+        gpu.setUniformMat4(cmd->shader, "u_view", g_frameData->view);
+        gpu.setUniformMat4(cmd->shader, "u_proj", g_frameData->projection);
+    }
+
+    if (cmd->uniformsOffset != UINT32_MAX) {
+        const MaterialUniforms* uniforms = reinterpret_cast<const MaterialUniforms*>(
+            poolBase + cmd->uniformsOffset);
+        gpu.applyMaterialUniforms(cmd->shader, *uniforms);
+    }
+
+    if (cmd->instanceDataOffset != UINT32_MAX && cmd->instanceCount > 0) {
+        const Mat4* instanceMatrices = reinterpret_cast<const Mat4*>(
+            poolBase + cmd->instanceDataOffset);
+        
+        gpu.setInstanceBuffer(cmd->mesh, instanceMatrices, 
+                              cmd->instanceCount * sizeof(Mat4), sizeof(Mat4));
+    }
+
+    if (gpu.meshIsIndexed(cmd->mesh)) {
+        gpu.drawIndexedInstanced(0, cmd->instanceCount);
+    } else {
+        gpu.drawArraysInstanced(0, cmd->instanceCount);
     }
 }
 

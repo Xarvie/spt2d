@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <unordered_map>
 
 namespace spt3d {
 
@@ -46,7 +47,6 @@ void CopyMaterialUniforms(MaterialUniforms& out, const MaterialSnapshot& snap) {
 
 void DrawList::sort(SortMode mode, Vec3 cameraPos) {
     if (m_items.empty()) return;
-
     if (mode == SortMode::None) return;
 
     std::vector<std::pair<float, int>> distances;
@@ -86,12 +86,8 @@ void DrawList::filterByTag(uint32_t includeHash, uint32_t excludeHash,
     for (const DrawItem& item : m_items) {
         uint32_t tagHash = item.material.tagHash;
 
-        if (includeHash != 0 && tagHash != includeHash) {
-            continue;
-        }
-        if (excludeHash != 0 && tagHash == excludeHash) {
-            continue;
-        }
+        if (includeHash != 0 && tagHash != includeHash) continue;
+        if (excludeHash != 0 && tagHash == excludeHash) continue;
 
         out.push_back(&item);
     }
@@ -113,12 +109,8 @@ void DrawList::emitCommands(GameWork& work,
         const DrawItem& item = m_items[i];
         uint32_t tagHash = item.material.tagHash;
 
-        if (tagInclude != 0 && tagHash != tagInclude) {
-            continue;
-        }
-        if (tagExclude != 0 && tagHash == tagExclude) {
-            continue;
-        }
+        if (tagInclude != 0 && tagHash != tagInclude) continue;
+        if (tagExclude != 0 && tagHash == tagExclude) continue;
 
         indices.push_back(i);
     }
@@ -188,6 +180,156 @@ void DrawList::emitCommands(GameWork& work,
         uint64_t sortKey = RenderCommand::BuildSortKey(layer, depth24, matId, seq++);
 
         work.submit(cmd, cmd::execDrawMesh, sortKey, DrawMeshCmd::kTypeId);
+    }
+}
+
+void DrawList::emitCommandsInstanced(GameWork& work,
+                                     SortMode sortMode,
+                                     Vec3 cameraPos,
+                                     uint32_t tagInclude,
+                                     uint32_t tagExclude,
+                                     uint8_t layer,
+                                     std::string_view passName) const {
+    if (m_items.empty()) return;
+
+    std::vector<int> indices;
+    indices.reserve(m_items.size());
+
+    for (int i = 0; i < static_cast<int>(m_items.size()); ++i) {
+        const DrawItem& item = m_items[i];
+        uint32_t tagHash = item.material.tagHash;
+
+        if (tagInclude != 0 && tagHash != tagInclude) continue;
+        if (tagExclude != 0 && tagHash == tagExclude) continue;
+
+        indices.push_back(i);
+    }
+
+    if (indices.empty()) return;
+
+    struct BatchKey {
+        uint32_t meshValue;
+        uint32_t shaderValue;
+        uint32_t stateHash;
+
+        bool operator==(const BatchKey& o) const {
+            return meshValue == o.meshValue && 
+                   shaderValue == o.shaderValue && 
+                   stateHash == o.stateHash;
+        }
+    };
+
+    struct BatchKeyHash {
+        size_t operator()(const BatchKey& k) const {
+            size_t seed = std::hash<uint32_t>{}(k.meshValue);
+            seed ^= std::hash<uint32_t>{}(k.shaderValue) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            seed ^= std::hash<uint32_t>{}(k.stateHash)   + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            return seed;
+        }
+    };
+
+    std::unordered_map<BatchKey, std::vector<int>, BatchKeyHash> batches;
+
+    for (int idx : indices) {
+        const DrawItem& item = m_items[idx];
+        
+        BatchKey key;
+        key.meshValue = item.mesh.value;
+        key.shaderValue = item.material.shader.value;
+        
+        key.stateHash = static_cast<uint32_t>(
+            (static_cast<uint32_t>(item.material.state.blend) << 0) |
+            (static_cast<uint32_t>(item.material.state.cull) << 4) |
+            (static_cast<uint32_t>(item.material.state.depth_test ? 1 : 0) << 8) |
+            (static_cast<uint32_t>(item.material.state.depth_write ? 1 : 0) << 9)
+        );
+
+        batches[key].push_back(idx);
+    }
+
+    uint16_t seq = 0;
+    for (const auto& [key, batchIndices] : batches) {
+        if (batchIndices.empty()) continue;
+
+        int instanceCount = static_cast<int>(batchIndices.size());
+
+        if (instanceCount == 1) {
+            const DrawItem& item = m_items[batchIndices[0]];
+
+            MaterialUniforms uniforms;
+            CopyMaterialUniforms(uniforms, item.material);
+
+            uint32_t uniformsOffset = work.allocUniform(uniforms);
+            uint32_t transformOffset = work.allocUniform(item.transform);
+
+            if (uniformsOffset == UINT32_MAX || transformOffset == UINT32_MAX) {
+                continue;
+            }
+
+            DrawMeshCmd cmd;
+            cmd.mesh = item.mesh;
+            cmd.shader = item.material.shader;
+            cmd.uniformsOffset = uniformsOffset;
+            cmd.transformOffset = transformOffset;
+
+            Vec3 pos = ExtractPositionFromMatrix(item.transform);
+            float dist = glm::length(pos - cameraPos);
+            if (item.sortOverride > 0.0f) {
+                dist = item.sortOverride;
+            }
+
+            uint32_t depth24 = static_cast<uint32_t>(
+                std::min(std::max(dist * 1000.0f, 0.0f), 16777215.0f)
+            );
+
+            uint16_t matId = static_cast<uint16_t>(item.material.shader.value & 0xFFFF);
+            uint64_t sortKey = RenderCommand::BuildSortKey(layer, depth24, matId, seq++);
+
+            work.submit(cmd, cmd::execDrawMesh, sortKey, DrawMeshCmd::kTypeId);
+        } else {
+            const DrawItem& firstItem = m_items[batchIndices[0]];
+
+            MaterialUniforms uniforms;
+            CopyMaterialUniforms(uniforms, firstItem.material);
+
+            uint32_t uniformsOffset = work.allocUniform(uniforms);
+
+            std::vector<Mat4> instanceMatrices;
+            instanceMatrices.reserve(instanceCount);
+            for (int idx : batchIndices) {
+                instanceMatrices.push_back(m_items[idx].transform);
+            }
+
+            uint32_t instanceDataOffset = work.allocUniformArray(instanceMatrices.data(), 
+                                                                  instanceCount * sizeof(Mat4));
+
+            if (uniformsOffset == UINT32_MAX || instanceDataOffset == UINT32_MAX) {
+                continue;
+            }
+
+            DrawInstancedCmd cmd;
+            cmd.mesh = firstItem.mesh;
+            cmd.shader = firstItem.material.shader;
+            cmd.uniformsOffset = uniformsOffset;
+            cmd.instanceDataOffset = instanceDataOffset;
+            cmd.instanceCount = instanceCount;
+
+            Vec3 centerPos(0.0f);
+            for (int idx : batchIndices) {
+                centerPos += ExtractPositionFromMatrix(m_items[idx].transform);
+            }
+            centerPos /= static_cast<float>(instanceCount);
+
+            float dist = glm::length(centerPos - cameraPos);
+            uint32_t depth24 = static_cast<uint32_t>(
+                std::min(std::max(dist * 1000.0f, 0.0f), 16777215.0f)
+            );
+
+            uint16_t matId = static_cast<uint16_t>(firstItem.material.shader.value & 0xFFFF);
+            uint64_t sortKey = RenderCommand::BuildSortKey(layer, depth24, matId, seq++);
+
+            work.submit(cmd, cmd::execDrawMeshInstanced, sortKey, DrawInstancedCmd::kTypeId);
+        }
     }
 }
 

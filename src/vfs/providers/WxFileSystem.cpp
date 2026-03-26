@@ -142,17 +142,27 @@ uint64_t WxFileSystemProvider::read(const std::string& path,
     EM_ASM({
         var id = $0;
         var fullPath = UTF8ToString($1);
-        console.log("[WxVfs] readFile: " + fullPath);
+        var isPackage = $2;
+        
+        console.log("[WxVfs] readFile: " + fullPath + ", isPackage=" + isPackage);
+        
         var fs = typeof wx !== "undefined" ? wx.getFileSystemManager() : null;
         if (!fs) {
             console.log("[WxVfs] ERROR: wx not available");
             _WxVfs_OnReadComplete(id, 0, 0, 0, "wx not available");
             return;
         }
+        
+        var filePath = fullPath;
+        
+        if (isPackage) {
+            console.log("[WxVfs] Package resource detected, using direct path: " + filePath);
+        }
+        
         fs.readFile({
-            filePath: fullPath,
+            filePath: filePath,
             success: function(res) {
-                console.log("[WxVfs] readFile SUCCESS: " + fullPath + ", size=" + (res.data ? res.data.byteLength : 0));
+                console.log("[WxVfs] readFile SUCCESS: " + filePath + ", size=" + (res.data ? res.data.byteLength : 0));
                 var data = res.data;
                 var u8;
                 if (data instanceof ArrayBuffer) {
@@ -169,7 +179,7 @@ uint64_t WxFileSystemProvider::read(const std::string& path,
                 _free(ptr);
             },
             fail: function(err) {
-                console.log("[WxVfs] readFile FAIL: " + fullPath + ", err=" + (err.errMsg || "unknown"));
+                console.log("[WxVfs] readFile FAIL: " + filePath + ", err=" + (err.errMsg || "unknown"));
                 var msg = err.errMsg || "read failed";
                 var mLen = lengthBytesUTF8(msg) + 1;
                 var mPtr = _malloc(mLen);
@@ -178,7 +188,7 @@ uint64_t WxFileSystemProvider::read(const std::string& path,
                 _free(mPtr);
             }
         });
-    }, id, fullPath.c_str());
+    }, id, fullPath.c_str(), (m_type == RootType::Package) ? 1 : 0);
 
     return id;
 }

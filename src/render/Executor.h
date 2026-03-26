@@ -89,6 +89,7 @@ private:
 namespace cmd {
 
 void execDrawMesh(const void* payload, const uint8_t* poolBase) noexcept;
+void execDrawMeshInstanced(const void* payload, const uint8_t* poolBase) noexcept;
 void execClear(const void* payload, const uint8_t* poolBase) noexcept;
 void execSetViewport(const void* payload, const uint8_t* poolBase) noexcept;
 void execBindRT(const void* payload, const uint8_t* poolBase) noexcept;
